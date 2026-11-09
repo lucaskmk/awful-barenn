@@ -1,0 +1,47 @@
+Generating SQLite file resultados/06-cuda-inicial/nsys_barenn_cuda.sqlite from resultados/06-cuda-inicial/nsys_barenn_cuda.nsys-rep
+Processing [resultados/06-cuda-inicial/nsys_barenn_cuda.sqlite] with [/opt/ohpc/pub/spack/opt/spack/linux-skylake/cuda-12.8.1-hk7c4l6fpeucmtbivmr7kn73dnkarzyt/nsight-systems-2024.6.2/host-linux-x64/reports/cuda_gpu_kern_sum.py]... 
+
+ ** CUDA GPU Kernel Summary (cuda_gpu_kern_sum):
+
++----------+-----------------+-----------+----------+----------+----------+----------+-------------+-----------------------------------------------------------------------------------------------------+
+| Time (%) | Total Time (ns) | Instances | Avg (ns) | Med (ns) | Min (ns) | Max (ns) | StdDev (ns) |                                                Name                                                 |
++----------+-----------------+-----------+----------+----------+----------+----------+-------------+-----------------------------------------------------------------------------------------------------+
+|     44.2 |     217,513,164 |    70,536 |  3,083.7 |  2,304.0 |    1,471 |    5,504 |     1,712.9 | <unnamed>::kernel_atualiza(const float *, const float *, float *, float *, int, float)              |
+|     29.4 |     144,581,862 |    70,533 |  2,049.8 |  1,696.0 |    1,183 |    3,296 |       873.5 | <unnamed>::kernel_forward(const float *, const float *, const float *, float *, float *, int, bool) |
+|     14.0 |      68,651,265 |    70,536 |    973.3 |    960.0 |      959 |    1,152 |        15.8 | <unnamed>::kernel_delta(const float *, const float *, float *, bool)                                |
+|     12.4 |      60,872,908 |    47,024 |  1,294.5 |  1,295.5 |    1,215 |    1,504 |        50.8 | <unnamed>::kernel_gradiente_entrada(const float *, const float *, float *, int, int)                |
++----------+-----------------+-----------+----------+----------+----------+----------+-------------+-----------------------------------------------------------------------------------------------------+
+
+Processing [resultados/06-cuda-inicial/nsys_barenn_cuda.sqlite] with [/opt/ohpc/pub/spack/opt/spack/linux-skylake/cuda-12.8.1-hk7c4l6fpeucmtbivmr7kn73dnkarzyt/nsight-systems-2024.6.2/host-linux-x64/reports/cuda_gpu_mem_time_sum.py]... 
+
+ ** CUDA GPU MemOps Summary (by Time) (cuda_gpu_mem_time_sum):
+
++----------+-----------------+--------+----------+----------+----------+----------+-------------+------------------------------+
+| Time (%) | Total Time (ns) | Count  | Avg (ns) | Med (ns) | Min (ns) | Max (ns) | StdDev (ns) |          Operation           |
++----------+-----------------+--------+----------+----------+----------+----------+-------------+------------------------------+
+|     62.3 |      30,733,664 | 47,038 |    653.4 |    640.0 |      287 |   13,216 |       114.6 | [CUDA memcpy Host-to-Device] |
+|     37.7 |      18,612,118 | 23,518 |    791.4 |    768.0 |      448 |   13,823 |       216.6 | [CUDA memcpy Device-to-Host] |
++----------+-----------------+--------+----------+----------+----------+----------+-------------+------------------------------+
+
+Processing [resultados/06-cuda-inicial/nsys_barenn_cuda.sqlite] with [/opt/ohpc/pub/spack/opt/spack/linux-skylake/cuda-12.8.1-hk7c4l6fpeucmtbivmr7kn73dnkarzyt/nsight-systems-2024.6.2/host-linux-x64/reports/cuda_gpu_mem_size_sum.py]... 
+
+ ** CUDA GPU MemOps Summary (by Size) (cuda_gpu_mem_size_sum):
+
++------------+--------+----------+----------+----------+----------+-------------+------------------------------+
+| Total (MB) | Count  | Avg (MB) | Med (MB) | Min (MB) | Max (MB) | StdDev (MB) |          Operation           |
++------------+--------+----------+----------+----------+----------+-------------+------------------------------+
+|      6.962 | 47,038 |    0.000 |    0.000 |    0.000 |    0.000 |       0.000 | [CUDA memcpy Host-to-Device] |
+|      0.941 | 23,518 |    0.000 |    0.000 |    0.000 |    0.000 |       0.000 | [CUDA memcpy Device-to-Host] |
++------------+--------+----------+----------+----------+----------+-------------+------------------------------+
+
+Processing [resultados/06-cuda-inicial/nsys_barenn_cuda.sqlite] with [/opt/ohpc/pub/spack/opt/spack/linux-skylake/cuda-12.8.1-hk7c4l6fpeucmtbivmr7kn73dnkarzyt/nsight-systems-2024.6.2/host-linux-x64/reports/cuda_api_sum.py]... 
+
+ ** CUDA API Summary (cuda_api_sum):
+
++----------+-----------------+-----------+----------+----------+----------+----------+-------------+------------------+
+| Time (%) | Total Time (ns) | Num Calls | Avg (ns) | Med (ns) | Min (ns) | Max (ns) | StdDev (ns) |       Name       |
++----------+-----------------+-----------+----------+----------+----------+----------+-------------+------------------+
+|     65.7 |     632,624,906 |    70,535 |  8,969.0 | 12,511.0 |    1,002 |  260,391 |     5,756.4 | cudaMemcpy       |
+|     34.3 |     330,016,754 |   258,631 |  1,276.0 |  1,241.0 |    1,118 |  607,254 |     1,741.9 | cudaLaunchKernel |
++----------+-----------------+-----------+----------+----------+----------+----------+-------------+------------------+
+
