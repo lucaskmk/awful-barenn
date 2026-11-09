@@ -1,0 +1,9 @@
+no: compute20
+NVIDIA RTX A1000, 570.124.06, 1462 MHz, 6001 MHz, P0
+binario: ./barenn_cuda | repeticoes: 10
+  lote blocoamo    media_s   desvio_s
+   128        2   0.030074   0.000062
+   128        4   0.024709   0.000047
+   128        8   0.022022   0.000051
+   128       16   0.023056   0.000038
+   128       32   0.028652   0.001297
