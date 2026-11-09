@@ -3,6 +3,7 @@ barenn
 barenn_hash
 barenn_cuda
 barenn_cuda_hash
+barenn_cuda_ocupacao
 contadores
 
 # Saidas de execucao no cluster
