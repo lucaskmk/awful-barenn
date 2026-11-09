@@ -26,6 +26,24 @@ constexpr int entradas = 64;
 constexpr int classes = 10;
 constexpr int epocas = 51;
 
+// Lê o tamanho do lote. Com BARENN_LOTE=1, o treino é o SGD original bit a bit.
+inline int le_lote(size_t amostras) {
+    int lote = 128;
+    if (const char* valor = getenv("BARENN_LOTE")) {
+        lote = atoi(valor);
+    }
+    if (lote < 1 || static_cast<size_t>(lote) > amostras) {
+        throw runtime_error("BARENN_LOTE deve estar entre 1 e o tamanho do treino.");
+    }
+    return lote;
+}
+
+// Até 32 amostras a taxa original é estável. Acima disso ela cai com o lote,
+// para manter taxa x lote em 0.64, o limite medido antes de a perda divergir.
+inline float taxa_do_lote(int lote) {
+    return lote <= 32 ? 0.02f : 0.02f * 32 / lote;
+}
+
 // As imagens ficam em um único bloco, uma linha de 64 atributos por amostra.
 struct Dados {
     vector<float> imagens;
