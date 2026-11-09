@@ -359,8 +359,8 @@ int main(int argc, char** argv) {
         }
 
         constexpr int epocas = 51;
-        // Amostras por atualização. Com 1, o treino é o SGD original bit a bit.
-        int lote = 1;
+        // Amostras por atualização. Com BARENN_LOTE=1, o treino é o SGD original bit a bit.
+        int lote = 128;
         if (const char* valor = getenv("BARENN_LOTE")) {
             lote = atoi(valor);
         }
