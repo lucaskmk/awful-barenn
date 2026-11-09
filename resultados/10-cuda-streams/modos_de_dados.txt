@@ -1,0 +1,24 @@
+modo=residente lote=128
+treino: media 0.022009 s | desvio 0.000031 s | min 0.021968 s | max 0.022062 s
+modo=residente lote=256
+treino: media 0.016085 s | desvio 0.000528 s | min 0.015890 s | max 0.017669 s
+modo=residente lote=512
+treino: media 0.013052 s | desvio 0.000012 s | min 0.013039 s | max 0.013081 s
+modo=residente lote=1024
+treino: media 0.011819 s | desvio 0.000004 s | min 0.011813 s | max 0.011826 s
+modo=copia lote=128
+treino: media 0.043977 s | desvio 0.000056 s | min 0.043929 s | max 0.044090 s
+modo=copia lote=256
+treino: media 0.030385 s | desvio 0.000037 s | min 0.030336 s | max 0.030443 s
+modo=copia lote=512
+treino: media 0.021401 s | desvio 0.000890 s | min 0.021078 s | max 0.024070 s
+modo=copia lote=1024
+treino: media 0.018657 s | desvio 0.000017 s | min 0.018629 s | max 0.018695 s
+modo=streams lote=128
+treino: media 0.024971 s | desvio 0.001179 s | min 0.024116 s | max 0.026780 s
+modo=streams lote=256
+treino: media 0.017191 s | desvio 0.000563 s | min 0.016982 s | max 0.018880 s
+modo=streams lote=512
+treino: media 0.013750 s | desvio 0.000050 s | min 0.013714 s | max 0.013851 s
+modo=streams lote=1024
+treino: media 0.012187 s | desvio 0.000010 s | min 0.012162 s | max 0.012204 s
