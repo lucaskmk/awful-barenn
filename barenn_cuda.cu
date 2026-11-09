@@ -15,6 +15,12 @@ constexpr int neuronios3 = Barenn::classes;
 constexpr int entradas1 = Barenn::entradas;
 constexpr int entradas2 = neuronios1;
 constexpr int entradas3 = neuronios2;
+// O kernel_atualiza agrupa os neurônios de quatro em quatro.
+constexpr int neuronios_grupo = 4;
+constexpr int grupos1 = neuronios1 / neuronios_grupo;
+constexpr int grupos2 = neuronios2 / neuronios_grupo;
+constexpr int grupos3 = (neuronios3 + neuronios_grupo - 1) / neuronios_grupo;
+constexpr int threads_atualiza = neuronios_grupo * entradas1;
 
 void checa(cudaError_t erro, const char* onde) {
     if (erro != cudaSuccess) {
@@ -243,61 +249,73 @@ __global__ void kernel_lote(const float* __restrict__ imagens, const int* __rest
 #endif
 }
 
-// Soma o gradiente do lote e move os pesos. Cada bloco cuida de um neurônio e cada thread
-// de um peso, somando as amostras em ordem: a conta de cada peso é a mesma da CPU.
+// Soma o gradiente do lote e move os pesos. Cada bloco cuida de um grupo de neurônios e
+// traz os deltas do grupo uma única vez para a memória compartilhada. Cada thread soma
+// um peso, em ordem de amostra, então a conta de cada peso é a mesma da CPU.
 __global__ void kernel_atualiza(Rede rede, EstadoLote l, const float* __restrict__ imagens,
                                 int tam, float taxa) {
     const int bloco = blockIdx.x;
-    const int t = threadIdx.x;
+    const int tid = threadIdx.x;
 
     const float* deltas;
     const float* x;
     float* pesos;
     float* vies;
-    int i;
+    int grupo;
     int saidas;
-    int entradas_camada;
-    if (bloco < neuronios1) {
-        i = bloco;
+    int ent;
+    if (bloco < grupos1) {
+        grupo = bloco;
         deltas = l.d1;
         x = imagens;
         pesos = rede.w1;
         vies = rede.b1;
         saidas = neuronios1;
-        entradas_camada = entradas1;
-    } else if (bloco < neuronios1 + neuronios2) {
-        i = bloco - neuronios1;
+        ent = entradas1;
+    } else if (bloco < grupos1 + grupos2) {
+        grupo = bloco - grupos1;
         deltas = l.d2;
         x = l.y1;
         pesos = rede.w2;
         vies = rede.b2;
         saidas = neuronios2;
-        entradas_camada = entradas2;
+        ent = entradas2;
     } else {
-        i = bloco - neuronios1 - neuronios2;
+        grupo = bloco - grupos1 - grupos2;
         deltas = l.erro;
         x = l.y2;
         pesos = rede.w3;
         vies = rede.b3;
         saidas = neuronios3;
-        entradas_camada = entradas3;
+        ent = entradas3;
     }
+    const int primeiro = grupo * neuronios_grupo;
+    const int neuronios = saidas - primeiro < neuronios_grupo ? saidas - primeiro : neuronios_grupo;
 
-    // O gradiente do peso é delta vezes a entrada.
-    if (t < entradas_camada) {
+    // Deltas do grupo, por amostra.
+    float* d = area;
+    for (int k = tid; k < tam * neuronios; k += blockDim.x) {
+        d[k] = deltas[k / neuronios * saidas + primeiro + k % neuronios];
+    }
+    __syncthreads();
+
+    // Uma thread por peso. O gradiente do peso é delta vezes a entrada.
+    const int i = tid / ent;
+    const int j = tid % ent;
+    if (i < neuronios) {
         float g = 0.0f;
         for (int s = 0; s < tam; ++s) {
-            g += deltas[s * saidas + i] * x[s * entradas_camada + t];
+            g += d[s * neuronios + i] * x[s * ent + j];
         }
-        pesos[i * entradas_camada + t] -= taxa * g;
+        pesos[(primeiro + i) * ent + j] -= taxa * g;
     }
     // O gradiente do viés é o próprio delta.
-    if (t == 0) {
+    if (tid < neuronios) {
         float total = 0.0f;
         for (int s = 0; s < tam; ++s) {
-            total += deltas[s * saidas + i];
+            total += d[s * neuronios + tid];
         }
-        vies[i] -= taxa * total;
+        vies[primeiro + tid] -= taxa * total;
     }
 }
 
@@ -448,7 +466,8 @@ int main(int argc, char** argv) {
                 kernel_lote<<<blocos, threads_bloco, shared_lote>>>(
                     imagens_lote, rotulos_gpu + ini, tam, amostras_bloco, rede, estado,
                     perdas_gpu + static_cast<size_t>(epoca) * amostras + ini);
-                kernel_atualiza<<<neuronios1 + neuronios2 + neuronios3, entradas1>>>(
+                kernel_atualiza<<<grupos1 + grupos2 + grupos3, threads_atualiza,
+                                  tam * neuronios_grupo * sizeof(float)>>>(
                     rede, estado, imagens_lote, tam, taxa);
             }
         }
