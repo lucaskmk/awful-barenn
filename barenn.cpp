@@ -16,6 +16,8 @@
 #include <utility>
 #include <vector>
 
+#include <omp.h>
+
 using namespace std;
 
 namespace Barenn {
@@ -122,6 +124,7 @@ public:
     // Soma os gradientes das tam amostras e só então move os pesos. Cada peso
     // recebe as parcelas na ordem das amostras, qualquer que seja a divisão do trabalho.
     void Atualiza(const float* entradas_lote, int tam, float learning_rate) {
+#pragma omp for schedule(static) nowait
         for (int j = 0; j < in_features; ++j) {
             float* __restrict g = grad_pesos.data() + j * out_features;
             fill(g, g + out_features, 0.0f);
@@ -139,6 +142,7 @@ public:
             }
         }
         // O gradiente do viés é o próprio delta.
+#pragma omp for schedule(static) nowait
         for (int i = 0; i < out_features; ++i) {
             float total = 0.0f;
             for (int s = 0; s < tam; ++s) {
@@ -146,10 +150,10 @@ public:
             }
             bias[i] -= learning_rate * total;
         }
-        SincronizaEspelho();
     }
 
     // Copia os pesos novos para o espelho por linha usado no gradiente de entrada.
+    // Só pode rodar depois que todas as threads terminarem o Atualiza.
     void SincronizaEspelho() {
         if (!precisa_grad_entrada) {
             return;
@@ -374,12 +378,21 @@ int main(int argc, char** argv) {
         vector<float> perda_amostra(treino.tamanho());
         array<double, epocas> perdas{};
 
+        // Sem OMP_SCHEDULE, cada thread fica com um pedaço fixo do lote.
+        if (!getenv("OMP_SCHEDULE")) {
+            omp_set_schedule(omp_sched_static, 0);
+        }
+
         // A medição inclui forward, perda e backward de todas as épocas.
         const auto inicio = chrono::steady_clock::now();
+        // Uma única região paralela no treino inteiro: abrir uma por lote custaria caro.
+#pragma omp parallel
         for (int epoca = 0; epoca < epocas; ++epoca) {
             // Uma época percorre todo o conjunto na ordem do arquivo.
             for (size_t ini = 0; ini < treino.tamanho(); ini += lote) {
                 const int tam = static_cast<int>(min<size_t>(lote, treino.tamanho() - ini));
+                // Dentro do lote os pesos não mudam: cada amostra é independente.
+#pragma omp for schedule(runtime)
                 for (int s = 0; s < tam; ++s) {
                     const float* imagem = treino.imagem(ini + s);
                     const float* escores = l3.Forward(l2.Forward(l1.Forward(imagem, s), s), s);
@@ -392,15 +405,26 @@ int main(int argc, char** argv) {
                     l1.Backward(grad2, s);
                 }
                 // Com os gradientes do lote prontos, cada camada atualiza os próprios pesos.
+                // Os laços dos três Atualiza não têm barreira: as camadas não se tocam.
                 l1.Atualiza(treino.imagem(ini), tam, taxa);
                 l2.Atualiza(l1.Saidas(), tam, taxa);
                 l3.Atualiza(l2.Saidas(), tam, taxa);
+#pragma omp barrier
+#pragma omp single
+                {
+                    l2.SincronizaEspelho();
+                    l3.SincronizaEspelho();
+                }
             }
-            double perda_total = 0;
-            for (float valor : perda_amostra) {
-                perda_total += valor;
+            // A perda é somada em ordem, então não depende do número de threads.
+#pragma omp single
+            {
+                double perda_total = 0;
+                for (float valor : perda_amostra) {
+                    perda_total += valor;
+                }
+                perdas[epoca] = perda_total / treino.tamanho();
             }
-            perdas[epoca] = perda_total / treino.tamanho();
         }
         const chrono::duration<double> tempo = chrono::steady_clock::now() - inicio;
 
