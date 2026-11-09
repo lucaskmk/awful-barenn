@@ -15,6 +15,8 @@
 #include <utility>
 #include <vector>
 
+#include <omp.h>
+
 using namespace std;
 
 namespace Barenn {
@@ -76,11 +78,16 @@ public:
         float* __restrict y = out.data();
         copy(bias.begin(), bias.end(), z);
         // Percorre as colunas por fora: cada z[i] recebe as parcelas na mesma ordem.
-        for (int j = 0; j < in_features; ++j) {
-            const float* __restrict w = pesos_coluna.data() + j * out_features;
-            const float xj = x[j];
-            for (int i = 0; i < out_features; ++i) {
-                z[i] += xj * w[i];
+#pragma omp parallel
+        {
+            const int t = omp_get_thread_num(), T = omp_get_num_threads();
+            const int ini = out_features * t / T, fim = out_features * (t + 1) / T;
+            for (int j = 0; j < in_features; ++j) {
+                const float* __restrict w = pesos_coluna.data() + j * out_features;
+                const float xj = x[j];
+                for (int i = ini; i < fim; ++i) {
+                    z[i] += xj * w[i];
+                }
             }
         }
         // As camadas ocultas usam ReLU. A última devolve escores lineares.
@@ -105,17 +112,23 @@ public:
         float* __restrict g = grad_in.data();
         if (precisa_grad_entrada) {
             fill(g, g + in_features, 0.0f);
-            for (int r = 0; r < out_features; ++r) {
-                const float* __restrict w = pesos_linha.data() + r * in_features;
-                const float dr = d[r];
-                for (int c = 0; c < in_features; ++c) {
-                    g[c] += dr * w[c];
+#pragma omp parallel
+            {
+                const int t = omp_get_thread_num(), T = omp_get_num_threads();
+                const int ini = in_features * t / T, fim = in_features * (t + 1) / T;
+                for (int r = 0; r < out_features; ++r) {
+                    const float* __restrict w = pesos_linha.data() + r * in_features;
+                    const float dr = d[r];
+                    for (int c = ini; c < fim; ++c) {
+                        g[c] += dr * w[c];
+                    }
                 }
             }
         }
 
         // SGD por amostra. O gradiente do peso é delta vezes a entrada.
         const float* __restrict x = last_input;
+#pragma omp parallel for schedule(static)
         for (int j = 0; j < in_features; ++j) {
             float* __restrict w = pesos_coluna.data() + j * out_features;
             const float xj = x[j];
