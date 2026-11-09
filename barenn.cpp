@@ -25,6 +25,8 @@ namespace Barenn {
 // Cada imagem tem 64 atributos e pertence a uma das dez classes.
 constexpr int entradas = 64;
 constexpr int classes = 10;
+// A maior camada da rede tem 32 neurônios.
+constexpr int maximo_neuronios = 32;
 
 class DenseLayer {
     int in_features;
@@ -43,8 +45,6 @@ class DenseLayer {
     vector<float> saida;
     vector<float> delta;
     vector<float> grad_in;
-    // Gradiente do lote: um acumulador por coluna de pesos.
-    vector<float> grad_pesos;
 
 public:
     DenseLayer(int input_size, int output_size, int lote, bool is_final = false,
@@ -54,8 +54,7 @@ public:
           pesos_coluna(output_size * input_size),
           pesos_linha(grad_entrada ? output_size * input_size : 0),
           bias(output_size, 0), soma(lote * output_size), saida(lote * output_size),
-          delta(lote * output_size), grad_in(lote * input_size),
-          grad_pesos(output_size * input_size) {
+          delta(lote * output_size), grad_in(lote * input_size) {
         // A semente fixa torna a inicialização de cada camada reproduzível.
         // Os valores são sorteados na ordem [i][j], a mesma do código original.
         mt19937 gen(1337);
@@ -126,8 +125,9 @@ public:
     void Atualiza(const float* entradas_lote, int tam, float learning_rate) {
 #pragma omp for schedule(static) nowait
         for (int j = 0; j < in_features; ++j) {
-            float* __restrict g = grad_pesos.data() + j * out_features;
-            fill(g, g + out_features, 0.0f);
+            // Acumulador na pilha da thread: colunas vizinhas são de threads diferentes
+            // e, em um vetor comum, dividiriam a mesma linha de cache.
+            alignas(64) float g[maximo_neuronios] = {};
             // O gradiente do peso é delta vezes a entrada.
             for (int s = 0; s < tam; ++s) {
                 const float* __restrict d = delta.data() + s * out_features;
