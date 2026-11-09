@@ -56,9 +56,7 @@ struct EstadoLote {
     float* y1;
     float* y2;
     float* erro;
-    float* g3;
     float* d2;
-    float* g2;
     float* d1;
 #ifdef BARENN_OCUPACAO
     unsigned long long* ciclos_sm;
@@ -66,128 +64,174 @@ struct EstadoLote {
 #endif
 };
 
+// Memória compartilhada do bloco, com tamanho definido no lançamento do kernel.
+extern __shared__ float area[];
+
+// Copia n valores entre a memória global e a compartilhada. Cada thread copia um a cada
+// blockDim.x valores, e as threads de um warp acessam posições vizinhas.
+__device__ inline void copia(float* destino, const float* origem, int n) {
+    for (int k = threadIdx.x; k < n; k += blockDim.x) {
+        destino[k] = origem[k];
+    }
+}
+
 // Forward e backward de um pedaço do lote: uma thread por par amostra e neurônio.
+// O bloco traz os pesos e as imagens para a memória compartilhada e faz toda a conta lá.
 // Só escreve no estado do lote. Os pesos só mudam depois, em kernel_atualiza.
 __global__ void kernel_lote(const float* __restrict__ imagens, const int* __restrict__ rotulos,
                             int tam, int amostras_bloco, Rede rede, EstadoLote l,
                             float* __restrict__ perdas) {
     const int tid = threadIdx.x;
     const int base = blockIdx.x * amostras_bloco;
+    const int validas = amostras_bloco < tam - base ? amostras_bloco : tam - base;
 #ifdef BARENN_OCUPACAO
     const long long ciclos_inicio = tid == 0 ? clock64() : 0;
 #endif
 
+    // Organização da memória compartilhada: pesos e vieses, depois as linhas das amostras.
+    float* w1 = area;
+    float* b1 = w1 + neuronios1 * entradas1;
+    float* w2 = b1 + neuronios1;
+    float* b2 = w2 + neuronios2 * entradas2;
+    float* w3 = b2 + neuronios2;
+    float* b3 = w3 + neuronios3 * entradas3;
+    float* imagem = b3 + neuronios3;
+    float* y1 = imagem + amostras_bloco * entradas1;
+    float* y2 = y1 + amostras_bloco * neuronios1;
+    float* erro = y2 + amostras_bloco * neuronios2;
+    float* g3 = erro + amostras_bloco * neuronios3;
+    float* d2 = g3 + amostras_bloco * entradas3;
+    float* g2 = d2 + amostras_bloco * neuronios2;
+    float* d1 = g2 + amostras_bloco * entradas2;
+
+    copia(w1, rede.w1, neuronios1 * entradas1);
+    copia(b1, rede.b1, neuronios1);
+    copia(w2, rede.w2, neuronios2 * entradas2);
+    copia(b2, rede.b2, neuronios2);
+    copia(w3, rede.w3, neuronios3 * entradas3);
+    copia(b3, rede.b3, neuronios3);
+    copia(imagem, imagens + base * entradas1, validas * entradas1);
+    __syncthreads();
+
     // Forward da camada 1.
     {
-        const int s = base + tid / neuronios1;
+        const int s = tid / neuronios1;
         const int i = tid % neuronios1;
-        if (s < tam) {
-            const float* x = imagens + s * entradas1;
-            const float* w = rede.w1 + i * entradas1;
-            float z = rede.b1[i];
+        if (s < validas) {
+            const float* x = imagem + s * entradas1;
+            const float* w = w1 + i * entradas1;
+            float z = b1[i];
             for (int j = 0; j < entradas1; ++j) {
                 z += x[j] * w[j];
             }
-            l.y1[s * neuronios1 + i] = 0.0f < z ? z : 0.0f;
+            y1[s * neuronios1 + i] = 0.0f < z ? z : 0.0f;
         }
     }
     __syncthreads();
 
     // Forward da camada 2.
     if (tid < amostras_bloco * neuronios2) {
-        const int s = base + tid / neuronios2;
+        const int s = tid / neuronios2;
         const int i = tid % neuronios2;
-        if (s < tam) {
-            const float* x = l.y1 + s * entradas2;
-            const float* w = rede.w2 + i * entradas2;
-            float z = rede.b2[i];
+        if (s < validas) {
+            const float* x = y1 + s * entradas2;
+            const float* w = w2 + i * entradas2;
+            float z = b2[i];
             for (int j = 0; j < entradas2; ++j) {
                 z += x[j] * w[j];
             }
-            l.y2[s * neuronios2 + i] = 0.0f < z ? z : 0.0f;
+            y2[s * neuronios2 + i] = 0.0f < z ? z : 0.0f;
         }
     }
     __syncthreads();
 
     // Forward da camada 3 e erro de cada escore em relação ao alvo.
     if (tid < amostras_bloco * neuronios3) {
-        const int s = base + tid / neuronios3;
+        const int s = tid / neuronios3;
         const int i = tid % neuronios3;
-        if (s < tam) {
-            const float* x = l.y2 + s * entradas3;
-            const float* w = rede.w3 + i * entradas3;
-            float z = rede.b3[i];
+        if (s < validas) {
+            const float* x = y2 + s * entradas3;
+            const float* w = w3 + i * entradas3;
+            float z = b3[i];
             for (int j = 0; j < entradas3; ++j) {
                 z += x[j] * w[j];
             }
-            l.erro[s * neuronios3 + i] = z - (i == rotulos[s] ? 1.0f : 0.0f);
+            erro[s * neuronios3 + i] = z - (i == rotulos[base + s] ? 1.0f : 0.0f);
         }
     }
     __syncthreads();
 
     // A perda soma as classes em ordem, uma thread por amostra.
     if (tid < amostras_bloco) {
-        const int s = base + tid;
-        if (s < tam) {
-            const float* e = l.erro + s * neuronios3;
+        const int s = tid;
+        if (s < validas) {
+            const float* e = erro + s * neuronios3;
             float total = 0.0f;
             for (int i = 0; i < neuronios3; ++i) {
                 total += 0.5f * e[i] * e[i];
             }
-            perdas[s] = total;
+            perdas[base + s] = total;
         }
     }
 
     // Backward da camada 3: gradiente de cada entrada.
     if (tid < amostras_bloco * entradas3) {
-        const int s = base + tid / entradas3;
+        const int s = tid / entradas3;
         const int c = tid % entradas3;
-        if (s < tam) {
-            const float* e = l.erro + s * neuronios3;
+        if (s < validas) {
+            const float* e = erro + s * neuronios3;
             float g = 0.0f;
             for (int r = 0; r < neuronios3; ++r) {
-                g += e[r] * rede.w3[r * entradas3 + c];
+                g += e[r] * w3[r * entradas3 + c];
             }
-            l.g3[s * entradas3 + c] = g;
+            g3[s * entradas3 + c] = g;
         }
     }
     __syncthreads();
 
     // Delta da camada 2. Na ReLU, o gradiente passa só se a soma foi positiva.
     if (tid < amostras_bloco * neuronios2) {
-        const int s = base + tid / neuronios2;
+        const int s = tid / neuronios2;
         const int i = tid % neuronios2;
-        if (s < tam) {
+        if (s < validas) {
             const int p = s * neuronios2 + i;
-            l.d2[p] = l.g3[p] * (l.y2[p] > 0.0f ? 1.0f : 0.0f);
+            d2[p] = g3[p] * (y2[p] > 0.0f ? 1.0f : 0.0f);
         }
     }
     __syncthreads();
 
     // Gradiente de entrada da camada 2.
     {
-        const int s = base + tid / entradas2;
+        const int s = tid / entradas2;
         const int c = tid % entradas2;
-        if (s < tam) {
-            const float* d = l.d2 + s * neuronios2;
+        if (s < validas) {
+            const float* d = d2 + s * neuronios2;
             float g = 0.0f;
             for (int r = 0; r < neuronios2; ++r) {
-                g += d[r] * rede.w2[r * entradas2 + c];
+                g += d[r] * w2[r * entradas2 + c];
             }
-            l.g2[s * entradas2 + c] = g;
+            g2[s * entradas2 + c] = g;
         }
     }
     __syncthreads();
 
     // Delta da camada 1.
     {
-        const int s = base + tid / neuronios1;
+        const int s = tid / neuronios1;
         const int i = tid % neuronios1;
-        if (s < tam) {
+        if (s < validas) {
             const int p = s * neuronios1 + i;
-            l.d1[p] = l.g2[p] * (l.y1[p] > 0.0f ? 1.0f : 0.0f);
+            d1[p] = g2[p] * (y1[p] > 0.0f ? 1.0f : 0.0f);
         }
     }
+    __syncthreads();
+
+    // Só o que o kernel_atualiza precisa volta para a memória global.
+    copia(l.y1 + base * neuronios1, y1, validas * neuronios1);
+    copia(l.y2 + base * neuronios2, y2, validas * neuronios2);
+    copia(l.erro + base * neuronios3, erro, validas * neuronios3);
+    copia(l.d2 + base * neuronios2, d2, validas * neuronios2);
+    copia(l.d1 + base * neuronios1, d1, validas * neuronios1);
 
 #ifdef BARENN_OCUPACAO
     if (tid == 0) {
@@ -351,6 +395,14 @@ int main(int argc, char** argv) {
             throw runtime_error("BARENN_AMOSTRAS_BLOCO deve estar entre 1 e 32.");
         }
         const int threads_bloco = amostras_bloco * neuronios1;
+        // Pesos e vieses de toda a rede e, para cada amostra do bloco, a imagem e os
+        // resultados intermediários de todas as etapas.
+        constexpr size_t floats_rede = neuronios1 * entradas1 + neuronios1 +
+                                       neuronios2 * entradas2 + neuronios2 +
+                                       neuronios3 * entradas3 + neuronios3;
+        constexpr size_t floats_amostra = entradas1 + neuronios1 + neuronios2 + neuronios3 +
+                                          entradas3 + neuronios2 + entradas2 + neuronios1;
+        const size_t shared_lote = (floats_rede + amostras_bloco * floats_amostra) * sizeof(float);
 
         // Rede densa com dimensões 64 -> 32 -> 16 -> 10.
         Rede rede{aloca_gpu<float>(neuronios1 * entradas1), aloca_gpu<float>(neuronios1),
@@ -364,9 +416,7 @@ int main(int argc, char** argv) {
         estado.y1 = aloca_gpu<float>(lote * neuronios1);
         estado.y2 = aloca_gpu<float>(lote * neuronios2);
         estado.erro = aloca_gpu<float>(lote * neuronios3);
-        estado.g3 = aloca_gpu<float>(lote * entradas3);
         estado.d2 = aloca_gpu<float>(lote * neuronios2);
-        estado.g2 = aloca_gpu<float>(lote * entradas2);
         estado.d1 = aloca_gpu<float>(lote * neuronios1);
 #ifdef BARENN_OCUPACAO
         constexpr int maximo_sms = 256;
@@ -395,7 +445,7 @@ int main(int argc, char** argv) {
                 const int tam = min(lote, amostras - ini);
                 const int blocos = (tam + amostras_bloco - 1) / amostras_bloco;
                 const float* imagens_lote = imagens_gpu + ini * entradas1;
-                kernel_lote<<<blocos, threads_bloco>>>(
+                kernel_lote<<<blocos, threads_bloco, shared_lote>>>(
                     imagens_lote, rotulos_gpu + ini, tam, amostras_bloco, rede, estado,
                     perdas_gpu + static_cast<size_t>(epoca) * amostras + ini);
                 kernel_atualiza<<<neuronios1 + neuronios2 + neuronios3, entradas1>>>(
@@ -457,7 +507,7 @@ int main(int argc, char** argv) {
         Barenn::avaliar([&](size_t i) { return escores.data() + i * neuronios3; }, teste);
 
         for (float* p : {rede.w1, rede.b1, rede.w2, rede.b2, rede.w3, rede.b3, estado.y1,
-                         estado.y2, estado.erro, estado.g3, estado.d2, estado.g2, estado.d1,
+                         estado.y2, estado.erro, estado.d2, estado.d1,
                          imagens_gpu, teste_gpu, perdas_gpu, escores_gpu}) {
             checa(cudaFree(p), "cudaFree");
         }
