@@ -1,0 +1,15 @@
+no: compute20
+Model name:                           Intel(R) Core(TM) i9-14900
+binario: ./barenn | repeticoes: 10 | cpu: 8 | OMP_NUM_THREADS: nao definido
+1 0.3368 0.378329
+2 0.3360 0.363555
+3 0.3365 0.363884
+4 0.3349 0.362650
+5 0.3355 0.363046
+6 0.3356 0.363466
+7 0.3354 0.362465
+8 0.3346 0.362759
+9 0.3353 0.363506
+10 0.3344 0.361864
+treino: media 0.335500 s | desvio 0.000733 s | min 0.334400 s | max 0.336800 s
+total:  media 0.364552 s | desvio 0.004628 s
