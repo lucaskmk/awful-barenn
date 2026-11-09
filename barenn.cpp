@@ -68,10 +68,10 @@ public:
         }
     }
 
-    const vector<float>& Forward(const vector<float>& input) {
-        last_input = input.data();
+    const float* Forward(const float* input) {
+        last_input = input;
         // Entrada, pesos e saída nunca se sobrepõem: restrict informa isso ao compilador.
-        const float* __restrict x = input.data();
+        const float* __restrict x = input;
         float* __restrict z = last_z.data();
         float* __restrict y = out.data();
         copy(bias.begin(), bias.end(), z);
@@ -87,13 +87,13 @@ public:
         for (int i = 0; i < out_features; ++i) {
             y[i] = final ? z[i] : (0.0f < z[i] ? z[i] : 0.0f);
         }
-        return out;
+        return y;
     }
 
-    const vector<float>& Backward(const vector<float>& grad_out, float learning_rate) {
+    const float* Backward(const float* grad_out, float learning_rate) {
         // Delta é o gradiente da perda em relação à soma antes da ativação.
         // Na ReLU, o gradiente passa apenas quando essa soma é positiva.
-        const float* __restrict grad = grad_out.data();
+        const float* __restrict grad = grad_out;
         const float* __restrict z = last_z.data();
         float* __restrict d = delta.data();
         for (int i = 0; i < out_features; ++i) {
@@ -136,7 +136,7 @@ public:
         for (int i = 0; i < out_features; ++i) {
             bias[i] -= learning_rate * d[i];
         }
-        return grad_in;
+        return g;
     }
 
 #ifdef BARENN_HASH
@@ -160,24 +160,29 @@ public:
 #endif
 };
 
-struct Amostra {
-    vector<float> imagem;
-    int rotulo;
+// As imagens ficam em um único bloco, uma linha de 64 atributos por amostra.
+struct Dados {
+    vector<float> imagens;
+    vector<int> rotulos;
+
+    size_t tamanho() const { return rotulos.size(); }
+    const float* imagem(size_t i) const { return imagens.data() + i * entradas; }
 };
 
-vector<Amostra> ler_dados(const string& caminho) {
+Dados ler_dados(const string& caminho) {
     ifstream arquivo(caminho);
     if (!arquivo) {
         throw runtime_error("Não foi possível abrir " + caminho);
     }
 
-    vector<Amostra> dados;
+    Dados dados;
     string linha;
     size_t numero_linha = 0;
     while (getline(arquivo, linha)) {
         ++numero_linha;
         istringstream campos(linha);
-        Amostra amostra{};
+        int lidos = 0;
+        int rotulo = -1;
         // Cada atributo deve ser seguido por vírgula, inclusive o último.
         for (int i = 0; i < entradas; ++i) {
             float valor;
@@ -187,19 +192,18 @@ vector<Amostra> ler_dados(const string& caminho) {
                 break;
             }
             // Converte os valores de [0, 16] para [0, 1].
-            amostra.imagem.push_back(valor / 16.0f);
+            dados.imagens.push_back(valor / 16.0f);
+            ++lidos;
         }
         // Depois dos atributos, deve restar apenas o rótulo de 0 a 9.
-        if (amostra.imagem.size() != entradas ||
-            !(campos >> amostra.rotulo) ||
-            amostra.rotulo < 0 || amostra.rotulo >= classes ||
-            !(campos >> ws).eof()) {
+        if (lidos != entradas || !(campos >> rotulo) ||
+            rotulo < 0 || rotulo >= classes || !(campos >> ws).eof()) {
             throw runtime_error(caminho + ":" + to_string(numero_linha) +
                 " — esperados 64 atributos de 0 a 16 e um rótulo inteiro de 0 a 9");
         }
-        dados.push_back(move(amostra));
+        dados.rotulos.push_back(rotulo);
     }
-    if (arquivo.bad() || dados.empty()) {
+    if (arquivo.bad() || dados.rotulos.empty()) {
         throw runtime_error("Falha de leitura ou arquivo vazio: " + caminho);
     }
     return dados;
@@ -207,21 +211,19 @@ vector<Amostra> ler_dados(const string& caminho) {
 
 // Calcula metade da soma dos erros quadráticos. O alvo vale 1 para a
 // classe correta e 0 para as demais. O erro também é a derivada por escore.
-float perda(const vector<float>& escores, int rotulo,
-            vector<float>* gradiente = nullptr) {
+float perda(const float* escores, int rotulo, float* gradiente = nullptr) {
     float total = 0;
     for (int i = 0; i < classes; ++i) {
         float erro = escores[i] - (i == rotulo ? 1.0f : 0.0f);
         total += 0.5f * erro * erro;
         if (gradiente) {
-            (*gradiente)[i] = erro;
+            gradiente[i] = erro;
         }
     }
     return total;
 }
 
-void avaliar(DenseLayer& l1, DenseLayer& l2, DenseLayer& l3,
-             const vector<Amostra>& teste) {
+void avaliar(DenseLayer& l1, DenseLayer& l2, DenseLayer& l3, const Dados& teste) {
     struct Exemplo {
         size_t linha;
         int real;
@@ -240,16 +242,16 @@ void avaliar(DenseLayer& l1, DenseLayer& l2, DenseLayer& l3,
     double perda_total = 0;
 
     // Só fazemos forward aqui. Os pesos ficam fixos.
-    for (size_t i = 0; i < teste.size(); ++i) {
-        const auto& amostra = teste[i];
-        const auto& escores = l3.Forward(l2.Forward(l1.Forward(amostra.imagem)));
+    for (size_t i = 0; i < teste.tamanho(); ++i) {
+        const int rotulo = teste.rotulos[i];
+        const float* escores = l3.Forward(l2.Forward(l1.Forward(teste.imagem(i))));
         // O índice do maior escore indica a classe prevista.
         int previsto = static_cast<int>(
-            max_element(escores.begin(), escores.end()) - escores.begin());
-        bool acertou = previsto == amostra.rotulo;
+            max_element(escores, escores + classes) - escores);
+        bool acertou = previsto == rotulo;
         acertos += acertou;
-        ++confusoes[amostra.rotulo][previsto];
-        perda_total += perda(escores, amostra.rotulo);
+        ++confusoes[rotulo][previsto];
+        perda_total += perda(escores, rotulo);
 
         // Guarda até três acertos e três erros para ilustrar a saída.
         // A acurácia usa todas as imagens, inclusive as não exibidas.
@@ -261,16 +263,16 @@ void avaliar(DenseLayer& l1, DenseLayer& l2, DenseLayer& l3,
                     segundo = classe;
                 }
             }
-            exemplos.push_back({i + 1, amostra.rotulo, previsto, segundo,
+            exemplos.push_back({i + 1, rotulo, previsto, segundo,
                                 escores[previsto], escores[segundo]});
             ++exemplos_tipo;
         }
     }
 
     cout << "\nAVALIACAO FINAL\n"
-         << "Acuracia " << setprecision(1) << 100.0 * acertos / teste.size()
-         << "% | " << acertos << " acertos em " << teste.size() << " imagens\n"
-         << "Perda media " << setprecision(4) << perda_total / teste.size() << "\n";
+         << "Acuracia " << setprecision(1) << 100.0 * acertos / teste.tamanho()
+         << "% | " << acertos << " acertos em " << teste.tamanho() << " imagens\n"
+         << "Perda media " << setprecision(4) << perda_total / teste.tamanho() << "\n";
 
     cout << "\nALGUMAS INFERENCIAS\n";
     cout << "Esperado  Previsto\n";
@@ -344,23 +346,23 @@ int main(int argc, char** argv) {
         for (int epoca = 0; epoca < epocas; ++epoca) {
             double perda_total = 0;
             // Uma época percorre todo o conjunto na ordem do arquivo.
-            for (const auto& amostra : treino) {
-                const auto& escores = l3.Forward(l2.Forward(l1.Forward(amostra.imagem)));
-                perda_total += Barenn::perda(escores, amostra.rotulo, &gradiente);
+            for (size_t s = 0; s < treino.tamanho(); ++s) {
+                const float* escores = l3.Forward(l2.Forward(l1.Forward(treino.imagem(s))));
+                perda_total += Barenn::perda(escores, treino.rotulos[s], gradiente.data());
 
                 // Propaga o gradiente da última camada até a primeira.
                 // Cada Backward também atualiza os parâmetros da sua camada.
-                const auto& grad3 = l3.Backward(gradiente, taxa);
-                const auto& grad2 = l2.Backward(grad3, taxa);
+                const float* grad3 = l3.Backward(gradiente.data(), taxa);
+                const float* grad2 = l2.Backward(grad3, taxa);
                 l1.Backward(grad2, taxa);
             }
-            perdas[epoca] = perda_total / treino.size();
+            perdas[epoca] = perda_total / treino.tamanho();
         }
         const chrono::duration<double> tempo = chrono::steady_clock::now() - inicio;
 
         // Imprime as métricas e roda a avaliação após encerrar o cronômetro.
         cout << fixed << setprecision(4)
-             << "TREINO | " << treino.size() << " imagens\n";
+             << "TREINO | " << treino.tamanho() << " imagens\n";
         for (int epoca = 0; epoca < epocas; epoca += 5) {
             cout << "Epoca " << setw(2) << epoca + 1 << "/" << epocas
                  << " | perda media " << perdas[epoca] << "\n";
