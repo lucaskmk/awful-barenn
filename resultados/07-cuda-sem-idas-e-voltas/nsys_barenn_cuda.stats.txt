@@ -1,0 +1,49 @@
+Generating SQLite file resultados/07-cuda-sem-idas-e-voltas/nsys_barenn_cuda.sqlite from resultados/07-cuda-sem-idas-e-voltas/nsys_barenn_cuda.nsys-rep
+Processing [resultados/07-cuda-sem-idas-e-voltas/nsys_barenn_cuda.sqlite] with [/opt/ohpc/pub/spack/opt/spack/linux-skylake/cuda-12.8.1-hk7c4l6fpeucmtbivmr7kn73dnkarzyt/nsight-systems-2024.6.2/host-linux-x64/reports/cuda_gpu_kern_sum.py]... 
+
+ ** CUDA GPU Kernel Summary (cuda_gpu_kern_sum):
+
++----------+-----------------+-----------+--------------+--------------+------------+------------+-------------+------------------------------------------------------------------------------------------------------+
+| Time (%) | Total Time (ns) | Instances |   Avg (ns)   |   Med (ns)   |  Min (ns)  |  Max (ns)  | StdDev (ns) |                                                 Name                                                 |
++----------+-----------------+-----------+--------------+--------------+------------+------------+-------------+------------------------------------------------------------------------------------------------------+
+|     99.7 |   2,074,205,444 |        51 | 40,670,695.0 | 39,847,585.0 | 39,841,794 | 55,391,760 | 2,710,692.0 | <unnamed>::kernel_epoca(const float *, const int *, int, <unnamed>::Rede, <unnamed>::Rascunho, floa… |
+|      0.3 |       6,467,086 |         1 |  6,467,086.0 |  6,467,086.0 |  6,467,086 |  6,467,086 |         0.0 | <unnamed>::kernel_prever(const float *, int, <unnamed>::Rede, <unnamed>::Rascunho, float *)          |
++----------+-----------------+-----------+--------------+--------------+------------+------------+-------------+------------------------------------------------------------------------------------------------------+
+
+Processing [resultados/07-cuda-sem-idas-e-voltas/nsys_barenn_cuda.sqlite] with [/opt/ohpc/pub/spack/opt/spack/linux-skylake/cuda-12.8.1-hk7c4l6fpeucmtbivmr7kn73dnkarzyt/nsight-systems-2024.6.2/host-linux-x64/reports/cuda_gpu_mem_time_sum.py]... 
+
+ ** CUDA GPU MemOps Summary (by Time) (cuda_gpu_mem_time_sum):
+
++----------+-----------------+-------+----------+----------+----------+----------+-------------+------------------------------+
+| Time (%) | Total Time (ns) | Count | Avg (ns) | Med (ns) | Min (ns) | Max (ns) | StdDev (ns) |          Operation           |
++----------+-----------------+-------+----------+----------+----------+----------+-------------+------------------------------+
+|     64.6 |         121,181 |     9 | 13,464.6 |    480.0 |      384 |   78,366 |    27,293.4 | [CUDA memcpy Host-to-Device] |
+|     35.4 |          66,495 |     2 | 33,247.5 | 33,247.5 |    6,208 |   60,287 |    38,239.6 | [CUDA memcpy Device-to-Host] |
++----------+-----------------+-------+----------+----------+----------+----------+-------------+------------------------------+
+
+Processing [resultados/07-cuda-sem-idas-e-voltas/nsys_barenn_cuda.sqlite] with [/opt/ohpc/pub/spack/opt/spack/linux-skylake/cuda-12.8.1-hk7c4l6fpeucmtbivmr7kn73dnkarzyt/nsight-systems-2024.6.2/host-linux-x64/reports/cuda_gpu_mem_size_sum.py]... 
+
+ ** CUDA GPU MemOps Summary (by Size) (cuda_gpu_mem_size_sum):
+
++------------+-------+----------+----------+----------+----------+-------------+------------------------------+
+| Total (MB) | Count | Avg (MB) | Med (MB) | Min (MB) | Max (MB) | StdDev (MB) |          Operation           |
++------------+-------+----------+----------+----------+----------+-------------+------------------------------+
+|      1.465 |     9 |    0.163 |    0.002 |    0.000 |    0.979 |       0.341 | [CUDA memcpy Host-to-Device] |
+|      0.852 |     2 |    0.426 |    0.426 |    0.072 |    0.780 |       0.501 | [CUDA memcpy Device-to-Host] |
++------------+-------+----------+----------+----------+----------+-------------+------------------------------+
+
+Processing [resultados/07-cuda-sem-idas-e-voltas/nsys_barenn_cuda.sqlite] with [/opt/ohpc/pub/spack/opt/spack/linux-skylake/cuda-12.8.1-hk7c4l6fpeucmtbivmr7kn73dnkarzyt/nsight-systems-2024.6.2/host-linux-x64/reports/cuda_api_sum.py]... 
+
+ ** CUDA API Summary (cuda_api_sum):
+
++----------+-----------------+-----------+-----------------+-----------------+---------------+---------------+--------------+------------------------+
+| Time (%) | Total Time (ns) | Num Calls |    Avg (ns)     |    Med (ns)     |   Min (ns)    |   Max (ns)    | StdDev (ns)  |          Name          |
++----------+-----------------+-----------+-----------------+-----------------+---------------+---------------+--------------+------------------------+
+|     96.6 |   2,074,171,278 |         1 | 2,074,171,278.0 | 2,074,171,278.0 | 2,074,171,278 | 2,074,171,278 |          0.0 | cudaDeviceSynchronize  |
+|      3.1 |      66,287,169 |        17 |     3,899,245.2 |         1,409.0 |           931 |    66,218,708 | 16,059,361.4 | cudaMalloc             |
+|      0.3 |       6,807,445 |        11 |       618,858.6 |        11,256.0 |         1,457 |     6,474,768 |  1,942,617.3 | cudaMemcpy             |
+|      0.0 |         156,888 |        52 |         3,017.1 |         1,168.5 |         1,124 |        76,910 |     10,700.4 | cudaLaunchKernel       |
+|      0.0 |         122,871 |        17 |         7,227.7 |         1,356.0 |         1,101 |        57,281 |     16,439.7 | cudaFree               |
+|      0.0 |             874 |         1 |           874.0 |           874.0 |           874 |           874 |          0.0 | cuModuleGetLoadingMode |
++----------+-----------------+-----------+-----------------+-----------------+---------------+---------------+--------------+------------------------+
+
