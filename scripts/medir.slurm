@@ -16,10 +16,12 @@ BIN=${1:-./barenn}
 REPS=${2:-10}
 # Fixa o processo em um P-core: sem isso o escalonador alterna P- e E-cores.
 CPU=${CPU:-8}
+export OMP_PROC_BIND=true
+export OMP_WAIT_POLICY=active
 
 echo "no: $(hostname)"
 lscpu | grep "Model name"
-echo "binario: $BIN | repeticoes: $REPS | cpu: $CPU | OMP_NUM_THREADS: ${OMP_NUM_THREADS:-nao definido}"
+echo "binario: $BIN | repeticoes: $REPS | cpu: $CPU | OMP_NUM_THREADS: ${OMP_NUM_THREADS:-nao definido} | BARENN_LOTE: ${BARENN_LOTE:-padrao}"
 
 : > tempos_$SLURM_JOB_ID.txt
 for i in $(seq 1 "$REPS"); do

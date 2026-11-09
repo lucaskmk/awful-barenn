@@ -16,6 +16,8 @@ BIN=${1:-./barenn}
 REPS=${2:-10}
 LOTES=${LOTES:-"32 64 128 256"}
 export OMP_PROC_BIND=true
+# Sem isso o libgomp faz as threads dormirem na barreira e o lote espera elas acordarem.
+export OMP_WAIT_POLICY=active
 
 echo "no: $(hostname)"
 lscpu | grep "Model name"
