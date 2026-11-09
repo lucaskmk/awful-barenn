@@ -2,6 +2,8 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -92,6 +94,26 @@ public:
         }
         return grad_in;
     }
+
+#ifdef BARENN_HASH
+    // FNV-1a sobre os bits de pesos e vieses, em ordem canônica [i][j].
+    uint64_t Hash(uint64_t h) const {
+        auto misturar = [&h](float valor) {
+            uint32_t bits;
+            memcpy(&bits, &valor, sizeof bits);
+            h = (h ^ bits) * 1099511628211ULL;
+        };
+        for (const auto& row : weights) {
+            for (float weight : row) {
+                misturar(weight);
+            }
+        }
+        for (float b : bias) {
+            misturar(b);
+        }
+        return h;
+    }
+#endif
 };
 
 struct Amostra {
@@ -300,6 +322,13 @@ int main(int argc, char** argv) {
                  << " | perda media " << perdas[epoca] << "\n";
         }
         cout << "Tempo de treino " << tempo.count() << " s\n";
+#ifdef BARENN_HASH
+        uint64_t hash_pesos = 1469598103934665603ULL;
+        hash_pesos = l1.Hash(hash_pesos);
+        hash_pesos = l2.Hash(hash_pesos);
+        hash_pesos = l3.Hash(hash_pesos);
+        cout << "Hash dos pesos " << hex << hash_pesos << dec << "\n";
+#endif
         Barenn::avaliar(l1, l2, l3, teste);
     } catch (const exception& erro) {
         cerr << "Erro: " << erro.what() << "\n";
