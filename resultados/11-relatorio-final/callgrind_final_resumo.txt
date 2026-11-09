@@ -1,0 +1,62 @@
+==277314== Callgrind, a call-graph generating cache profiler
+==277314== Copyright (C) 2002-2017, and GNU GPL'd, by Josef Weidendorfer et al.
+==277314== Using Valgrind-3.24.0 and LibVEX; rerun with -h for copyright info
+==277314== Command: ./barenn_g
+==277314== 
+--277314-- warning: L3 cache found, using its data for the LL simulation.
+==277314== For interactive control, run 'callgrind_control -h'.
+TREINO | 3823 imagens
+Epoca  1/51 | perda media 0.4527
+Epoca  6/51 | perda media 0.2666
+Epoca 11/51 | perda media 0.1030
+Epoca 16/51 | perda media 0.0676
+Epoca 21/51 | perda media 0.0502
+Epoca 26/51 | perda media 0.0419
+Epoca 31/51 | perda media 0.0346
+Epoca 36/51 | perda media 0.0320
+Epoca 41/51 | perda media 0.0290
+Epoca 46/51 | perda media 0.0259
+Epoca 51/51 | perda media 0.0239
+Tempo de treino 39.855451 s
+
+AVALIACAO FINAL
+Acuracia 96.3% | 1731 acertos em 1797 imagens
+Perda media 0.0444
+
+ALGUMAS INFERENCIAS
+Esperado  Previsto
+       0         0
+       1         1
+       2         8
+       3         3
+       5         9
+       7         9
+
+CONFUSOES MAIS FREQUENTES
+Esperado  Previsto  Ocorrencias
+       7         5            9
+       1         9            7
+       7         9            6
+==277314== 
+==277314== Events    : Ir Dr Dw I1mr D1mr D1mw ILmr DLmr DLmw Bc Bcm Bi Bim
+==277314== Collected : 2513710581 677548402 247385215 53909 22026944 3015955 3313 8325 47197 376299551 7244004 8646164 1542468
+==277314== 
+==277314== I   refs:      2,513,710,581
+==277314== I1  misses:           53,909
+==277314== LLi misses:            3,313
+==277314== I1  miss rate:          0.00%
+==277314== LLi miss rate:          0.00%
+==277314== 
+==277314== D   refs:        924,933,617  (677,548,402 rd + 247,385,215 wr)
+==277314== D1  misses:       25,042,899  ( 22,026,944 rd +   3,015,955 wr)
+==277314== LLd misses:           55,522  (      8,325 rd +      47,197 wr)
+==277314== D1  miss rate:           2.7% (        3.3%   +         1.2%  )
+==277314== LLd miss rate:           0.0% (        0.0%   +         0.0%  )
+==277314== 
+==277314== LL refs:          25,096,808  ( 22,080,853 rd +   3,015,955 wr)
+==277314== LL misses:            58,835  (     11,638 rd +      47,197 wr)
+==277314== LL miss rate:            0.0% (        0.0%   +         0.0%  )
+==277314== 
+==277314== Branches:        384,945,715  (376,299,551 cond +   8,646,164 ind)
+==277314== Mispredicts:       8,786,472  (  7,244,004 cond +   1,542,468 ind)
+==277314== Mispred rate:            2.3% (        1.9%     +        17.8%   )

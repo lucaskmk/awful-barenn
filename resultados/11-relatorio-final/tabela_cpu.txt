@@ -1,0 +1,16 @@
+no: compute20 | rodadas: 20 | lote 128 nas tags que ja tem lote, um P-core
+tag                           mediana_s      min_s      max_s         ciclos     instrucoes     IPC GHz_efet  falhas_L1D
+v0.1-baseline                    0.3099     0.3078     0.3118     1889874374     9728494138   5.148     5.75      973482
+v0.2-sem-copias                  0.2854     0.2845     0.2868     1748692865     9018940321   5.158     5.74      331535
+v0.3-sem-gradiente-morto         0.1895     0.1874     0.1903     1193880621     5636993867   4.722     5.72      281822
+v0.4-layout-simd                 0.1058     0.1051     0.1080      707433478     3327066166   4.703     5.66      697067
+v0.5-paralelismo-minilote        0.0916     0.0900     0.0928      619408854     2509573677   4.052     5.64     5126881
+v0.1-baseline                    0.3099     0.3078     0.3118     1889874374     9728494138   5.148     5.75      973482
+v0.2-sem-copias                  0.2854     0.2845     0.2868     1748692865     9018940321   5.158     5.74      331535
+v0.3-sem-gradiente-morto         0.1895     0.1874     0.1903     1193880621     5636993867   4.722     5.72      281822
+v0.4-layout-simd                 0.1058     0.1051     0.1080      707433478     3327066166   4.703     5.66      697067
+v0.5-paralelismo-minilote        0.0916     0.0900     0.0928      619408854     2509573677   4.052     5.64     5126881
+
+### final em 8 P-cores, lote 128, intercalado com 1 P-core
+t1: media 0.0894 | mediana 0.0894 | desvio 0.00037 | min 0.0887 | max 0.0904
+t8: media 0.0216 | mediana 0.0217 | desvio 0.00041 | min 0.0200 | max 0.0219
