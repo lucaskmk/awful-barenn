@@ -1,0 +1,13 @@
+# Binarios gerados pelo Makefile
+barenn
+barenn_hash
+barenn_cuda
+barenn_cuda_hash
+contadores
+
+# Saidas de execucao no cluster
+medir_*.out
+escala_*.out
+*.nsys-rep
+*.qdstrm
+*.sqlite
