@@ -27,7 +27,7 @@ class DenseLayer {
     int in_features;
     int out_features;
     bool final;
-    // Pesos em bloco contíguo: a linha i começa em i * in_features.
+    // Pesos em bloco contíguo por coluna: a coluna j começa em j * out_features.
     vector<float> weights;
     vector<float> bias;
     // Dados do último forward usados para calcular os gradientes.
@@ -46,10 +46,13 @@ public:
           last_z(output_size), out(output_size), delta(output_size),
           grad_in(input_size) {
         // A semente fixa torna a inicialização de cada camada reproduzível.
+        // Os valores são sorteados na ordem [i][j], a mesma do código original.
         mt19937 gen(1337);
         uniform_real_distribution<float> distribution(-0.05f, 0.05f);
-        for (float& weight : weights) {
-            weight = distribution(gen);
+        for (int i = 0; i < out_features; ++i) {
+            for (int j = 0; j < in_features; ++j) {
+                weights[j * out_features + i] = distribution(gen);
+            }
         }
     }
 
@@ -59,16 +62,18 @@ public:
         const float* __restrict x = input.data();
         float* __restrict z = last_z.data();
         float* __restrict y = out.data();
-        // Cada neurônio soma o viés aos produtos entre entradas e pesos.
-        for (int i = 0; i < out_features; ++i) {
-            const float* __restrict w = weights.data() + i * in_features;
-            float sum = bias[i];
-            for (int j = 0; j < in_features; ++j) {
-                sum += x[j] * w[j];
+        copy(bias.begin(), bias.end(), z);
+        // Percorre as colunas por fora: cada z[i] recebe as parcelas na mesma ordem.
+        for (int j = 0; j < in_features; ++j) {
+            const float* __restrict w = weights.data() + j * out_features;
+            const float xj = x[j];
+            for (int i = 0; i < out_features; ++i) {
+                z[i] += xj * w[i];
             }
-            z[i] = sum;
-            // As camadas ocultas usam ReLU. A última devolve escores lineares.
-            y[i] = final ? sum : max(0.0f, sum);
+        }
+        // As camadas ocultas usam ReLU. A última devolve escores lineares.
+        for (int i = 0; i < out_features; ++i) {
+            y[i] = final ? z[i] : (0.0f < z[i] ? z[i] : 0.0f);
         }
         return out;
     }
@@ -88,27 +93,28 @@ public:
         // A primeira camada não tem camada anterior: esse gradiente seria descartado.
         float* __restrict g = grad_in.data();
         if (precisa_grad_entrada) {
-            fill(g, g + in_features, 0.0f);
-            // Percorre as linhas por fora: cada g[c] recebe as parcelas na mesma ordem.
-            for (int r = 0; r < out_features; ++r) {
-                const float* __restrict w = weights.data() + r * in_features;
-                const float dr = d[r];
-                for (int c = 0; c < in_features; ++c) {
-                    g[c] += dr * w[c];
+            for (int c = 0; c < in_features; ++c) {
+                const float* __restrict w = weights.data() + c * out_features;
+                float sum = 0;
+                for (int r = 0; r < out_features; ++r) {
+                    sum += d[r] * w[r];
                 }
+                g[c] = sum;
             }
         }
 
         // SGD por amostra. O gradiente do peso é delta vezes a entrada.
-        // O gradiente do viés é o próprio delta.
         const float* __restrict x = last_input;
-        for (int i = 0; i < out_features; ++i) {
-            float* __restrict w = weights.data() + i * in_features;
-            const float di = d[i];
-            for (int j = 0; j < in_features; ++j) {
-                w[j] -= learning_rate * (di * x[j]);
+        for (int j = 0; j < in_features; ++j) {
+            float* __restrict w = weights.data() + j * out_features;
+            const float xj = x[j];
+            for (int i = 0; i < out_features; ++i) {
+                w[i] -= learning_rate * (d[i] * xj);
             }
-            bias[i] -= learning_rate * di;
+        }
+        // O gradiente do viés é o próprio delta.
+        for (int i = 0; i < out_features; ++i) {
+            bias[i] -= learning_rate * d[i];
         }
         return grad_in;
     }
@@ -121,8 +127,10 @@ public:
             memcpy(&bits, &valor, sizeof bits);
             h = (h ^ bits) * 1099511628211ULL;
         };
-        for (float weight : weights) {
-            misturar(weight);
+        for (int i = 0; i < out_features; ++i) {
+            for (int j = 0; j < in_features; ++j) {
+                misturar(weights[j * out_features + i]);
+            }
         }
         for (float b : bias) {
             misturar(b);
