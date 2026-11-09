@@ -67,8 +67,21 @@ struct EstadoLote {
 #ifdef BARENN_OCUPACAO
     unsigned long long* ciclos_sm;
     unsigned int* blocos_sm;
+    unsigned long long* ciclos_etapa;
 #endif
 };
+
+// Na versão instrumentada, soma os ciclos gastos em cada etapa do kernel_lote.
+#ifdef BARENN_OCUPACAO
+#define MARCA_ETAPA(n)                                                                     \
+    if (tid == 0) {                                                                        \
+        const long long agora = clock64();                                                 \
+        atomicAdd(&l.ciclos_etapa[n], static_cast<unsigned long long>(agora - marca));     \
+        marca = agora;                                                                     \
+    }
+#else
+#define MARCA_ETAPA(n)
+#endif
 
 // Memória compartilhada do bloco, com tamanho definido no lançamento do kernel.
 extern __shared__ float area[];
@@ -92,6 +105,7 @@ __global__ void kernel_lote(const float* __restrict__ imagens, const int* __rest
     const int validas = amostras_bloco < tam - base ? amostras_bloco : tam - base;
 #ifdef BARENN_OCUPACAO
     const long long ciclos_inicio = tid == 0 ? clock64() : 0;
+    long long marca = ciclos_inicio;
 #endif
 
     // Organização da memória compartilhada: pesos e vieses, depois as linhas das amostras.
@@ -118,6 +132,7 @@ __global__ void kernel_lote(const float* __restrict__ imagens, const int* __rest
     copia(b3, rede.b3, neuronios3);
     copia(imagem, imagens + base * entradas1, validas * entradas1);
     __syncthreads();
+    MARCA_ETAPA(0);
 
     // Forward da camada 1.
     {
@@ -134,6 +149,7 @@ __global__ void kernel_lote(const float* __restrict__ imagens, const int* __rest
         }
     }
     __syncthreads();
+    MARCA_ETAPA(1);
 
     // Forward da camada 2.
     if (tid < amostras_bloco * neuronios2) {
@@ -150,6 +166,7 @@ __global__ void kernel_lote(const float* __restrict__ imagens, const int* __rest
         }
     }
     __syncthreads();
+    MARCA_ETAPA(2);
 
     // Forward da camada 3 e erro de cada escore em relação ao alvo.
     if (tid < amostras_bloco * neuronios3) {
@@ -166,6 +183,7 @@ __global__ void kernel_lote(const float* __restrict__ imagens, const int* __rest
         }
     }
     __syncthreads();
+    MARCA_ETAPA(3);
 
     // A perda soma as classes em ordem, uma thread por amostra.
     if (tid < amostras_bloco) {
@@ -194,6 +212,7 @@ __global__ void kernel_lote(const float* __restrict__ imagens, const int* __rest
         }
     }
     __syncthreads();
+    MARCA_ETAPA(4);
 
     // Delta da camada 2. Na ReLU, o gradiente passa só se a soma foi positiva.
     if (tid < amostras_bloco * neuronios2) {
@@ -205,6 +224,7 @@ __global__ void kernel_lote(const float* __restrict__ imagens, const int* __rest
         }
     }
     __syncthreads();
+    MARCA_ETAPA(5);
 
     // Gradiente de entrada da camada 2.
     {
@@ -220,6 +240,7 @@ __global__ void kernel_lote(const float* __restrict__ imagens, const int* __rest
         }
     }
     __syncthreads();
+    MARCA_ETAPA(6);
 
     // Delta da camada 1.
     {
@@ -231,6 +252,7 @@ __global__ void kernel_lote(const float* __restrict__ imagens, const int* __rest
         }
     }
     __syncthreads();
+    MARCA_ETAPA(7);
 
     // Só o que o kernel_atualiza precisa volta para a memória global.
     copia(l.y1 + base * neuronios1, y1, validas * neuronios1);
@@ -239,6 +261,7 @@ __global__ void kernel_lote(const float* __restrict__ imagens, const int* __rest
     copia(l.d2 + base * neuronios2, d2, validas * neuronios2);
     copia(l.d1 + base * neuronios1, d1, validas * neuronios1);
 
+    MARCA_ETAPA(8);
 #ifdef BARENN_OCUPACAO
     if (tid == 0) {
         unsigned int smid;
@@ -440,6 +463,9 @@ int main(int argc, char** argv) {
         constexpr int maximo_sms = 256;
         estado.ciclos_sm = aloca_gpu<unsigned long long>(maximo_sms);
         estado.blocos_sm = aloca_gpu<unsigned int>(maximo_sms);
+        constexpr int maximo_etapas = 16;
+        estado.ciclos_etapa = aloca_gpu<unsigned long long>(maximo_etapas);
+        checa(cudaMemset(estado.ciclos_etapa, 0, maximo_etapas * sizeof(unsigned long long)), "cudaMemset");
         checa(cudaMemset(estado.ciclos_sm, 0, maximo_sms * sizeof(unsigned long long)), "cudaMemset");
         checa(cudaMemset(estado.blocos_sm, 0, maximo_sms * sizeof(unsigned int)), "cudaMemset");
 #endif
@@ -507,6 +533,14 @@ int main(int argc, char** argv) {
                 sms_usados += blocos[sm] > 0;
                 soma_ciclos += ciclos[sm];
                 soma_blocos += blocos[sm];
+            }
+            vector<unsigned long long> etapas(maximo_etapas);
+            recebe(etapas.data(), estado.ciclos_etapa, etapas.size());
+            const double blocos_d = static_cast<double>(soma_blocos);
+            for (int e = 0; e < maximo_etapas; ++e) {
+                if (etapas[e] > 0) {
+                    cerr << "etapa " << e << ": " << etapas[e] / blocos_d << " ciclos por bloco\n";
+                }
             }
             cerr << "ocupacao: SMs usados " << sms_usados << " | blocos " << soma_blocos
                  << " | ciclos de bloco somados " << soma_ciclos << "\n";
