@@ -1,0 +1,32 @@
+TREINO | 3823 imagens
+Epoca  1/51 | perda media 0.4527
+Epoca  6/51 | perda media 0.2666
+Epoca 11/51 | perda media 0.1030
+Epoca 16/51 | perda media 0.0676
+Epoca 21/51 | perda media 0.0502
+Epoca 26/51 | perda media 0.0419
+Epoca 31/51 | perda media 0.0346
+Epoca 36/51 | perda media 0.0320
+Epoca 41/51 | perda media 0.0290
+Epoca 46/51 | perda media 0.0259
+Epoca 51/51 | perda media 0.0239
+Hash dos pesos 3d47e63baa129c93
+
+AVALIACAO FINAL
+Acuracia 96.3% | 1731 acertos em 1797 imagens
+Perda media 0.0444
+
+ALGUMAS INFERENCIAS
+Esperado  Previsto
+       0         0
+       1         1
+       2         8
+       3         3
+       5         9
+       7         9
+
+CONFUSOES MAIS FREQUENTES
+Esperado  Previsto  Ocorrencias
+       7         5            9
+       1         9            7
+       7         9            6

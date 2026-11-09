@@ -1,0 +1,8 @@
+no: compute20
+Model name:                           Intel(R) Core(TM) i9-14900
+binario: ./barenn | repeticoes: 10 | OMP_SCHEDULE: dynamic
+  lote    T    media_s   desvio_s  speedup eficiencia
+   128    1   0.096081   0.000232     1.00     100.0%
+   128    8   0.043456   0.000263     2.21      27.6%
+   128   16   0.043109   0.000228     2.23      13.9%
+   128   24   0.042876   0.000229     2.24       9.3%

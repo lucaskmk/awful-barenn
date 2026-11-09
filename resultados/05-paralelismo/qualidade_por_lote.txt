@@ -1,0 +1,25 @@
+--- B=1
+Epoca 51/51 | perda media 0.0135
+Hash dos pesos 516bbf84aa2b062
+Acuracia 95.5% | 1717 acertos em 1797 imagens
+Perda media 0.0432
+--- B=32
+Epoca 51/51 | perda media 0.0111
+Hash dos pesos 96b428a292a6379f
+Acuracia 96.5% | 1735 acertos em 1797 imagens
+Perda media 0.0368
+--- B=64
+Epoca 51/51 | perda media 0.0177
+Hash dos pesos 17a4fc7af1ba86a5
+Acuracia 96.3% | 1730 acertos em 1797 imagens
+Perda media 0.0395
+--- B=128
+Epoca 51/51 | perda media 0.0239
+Hash dos pesos 3d47e63baa129c93
+Acuracia 96.3% | 1731 acertos em 1797 imagens
+Perda media 0.0444
+--- B=256
+Epoca 51/51 | perda media 0.0376
+Hash dos pesos 5c757083bb4933c0
+Acuracia 94.4% | 1697 acertos em 1797 imagens
+Perda media 0.0645
