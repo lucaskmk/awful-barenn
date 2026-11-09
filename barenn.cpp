@@ -57,15 +57,20 @@ public:
 
     const vector<float>& Forward(const vector<float>& input) {
         last_input = input.data();
+        // Entrada, pesos e saída nunca se sobrepõem: restrict informa isso ao compilador.
+        const float* __restrict x = input.data();
+        float* __restrict z = last_z.data();
+        float* __restrict y = out.data();
         // Cada neurônio soma o viés aos produtos entre entradas e pesos.
         for (int i = 0; i < out_features; ++i) {
+            const float* __restrict w = weights[i].data();
             float sum = bias[i];
             for (int j = 0; j < in_features; ++j) {
-                sum += input[j] * weights[i][j];
+                sum += x[j] * w[j];
             }
-            last_z[i] = sum;
+            z[i] = sum;
             // As camadas ocultas usam ReLU. A última devolve escores lineares.
-            out[i] = final ? sum : max(0.0f, sum);
+            y[i] = final ? sum : max(0.0f, sum);
         }
         return out;
     }
@@ -73,27 +78,33 @@ public:
     const vector<float>& Backward(const vector<float>& grad_out, float learning_rate) {
         // Delta é o gradiente da perda em relação à soma antes da ativação.
         // Na ReLU, o gradiente passa apenas quando essa soma é positiva.
+        const float* __restrict grad = grad_out.data();
+        const float* __restrict z = last_z.data();
+        float* __restrict d = delta.data();
         for (int i = 0; i < out_features; ++i) {
-            delta[i] = final ? grad_out[i]
-                             : grad_out[i] * (last_z[i] > 0.0f ? 1.0f : 0.0f);
+            d[i] = final ? grad[i] : grad[i] * (z[i] > 0.0f ? 1.0f : 0.0f);
         }
 
         // O gradiente da entrada usa os pesos anteriores à atualização.
+        float* __restrict g = grad_in.data();
         for (int i = 0; i < in_features; ++i) {
             float sum = 0;
             for (int j = 0; j < out_features; ++j) {
-                sum += delta[j] * weights[j][i];
+                sum += d[j] * weights[j][i];
             }
-            grad_in[i] = sum;
+            g[i] = sum;
         }
 
         // SGD por amostra. O gradiente do peso é delta vezes a entrada.
         // O gradiente do viés é o próprio delta.
+        const float* __restrict x = last_input;
         for (int i = 0; i < out_features; ++i) {
+            float* __restrict w = weights[i].data();
+            const float di = d[i];
             for (int j = 0; j < in_features; ++j) {
-                weights[i][j] -= learning_rate * (delta[i] * last_input[j]);
+                w[j] -= learning_rate * (di * x[j]);
             }
-            bias[i] -= learning_rate * delta[i];
+            bias[i] -= learning_rate * di;
         }
         return grad_in;
     }
