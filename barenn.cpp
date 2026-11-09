@@ -27,8 +27,8 @@ class DenseLayer {
     int in_features;
     int out_features;
     bool final;
-    // weights[i][j] liga a entrada j ao neurônio de saída i.
-    vector<vector<float>> weights;
+    // Pesos em bloco contíguo: a linha i começa em i * in_features.
+    vector<float> weights;
     vector<float> bias;
     // Dados do último forward usados para calcular os gradientes.
     // A entrada é apenas referenciada: quem chama a mantém viva até o Backward.
@@ -42,16 +42,14 @@ class DenseLayer {
 public:
     DenseLayer(int input_size, int output_size, bool is_final = false)
         : in_features(input_size), out_features(output_size), final(is_final),
-          weights(output_size, vector<float>(input_size)), bias(output_size, 0),
+          weights(output_size * input_size), bias(output_size, 0),
           last_z(output_size), out(output_size), delta(output_size),
           grad_in(input_size) {
         // A semente fixa torna a inicialização de cada camada reproduzível.
         mt19937 gen(1337);
         uniform_real_distribution<float> distribution(-0.05f, 0.05f);
-        for (auto& row : weights) {
-            for (float& weight : row) {
-                weight = distribution(gen);
-            }
+        for (float& weight : weights) {
+            weight = distribution(gen);
         }
     }
 
@@ -63,7 +61,7 @@ public:
         float* __restrict y = out.data();
         // Cada neurônio soma o viés aos produtos entre entradas e pesos.
         for (int i = 0; i < out_features; ++i) {
-            const float* __restrict w = weights[i].data();
+            const float* __restrict w = weights.data() + i * in_features;
             float sum = bias[i];
             for (int j = 0; j < in_features; ++j) {
                 sum += x[j] * w[j];
@@ -87,15 +85,17 @@ public:
         }
 
         // O gradiente da entrada usa os pesos anteriores à atualização.
-        float* __restrict g = grad_in.data();
         // A primeira camada não tem camada anterior: esse gradiente seria descartado.
+        float* __restrict g = grad_in.data();
         if (precisa_grad_entrada) {
-            for (int i = 0; i < in_features; ++i) {
-                float sum = 0;
-                for (int j = 0; j < out_features; ++j) {
-                    sum += d[j] * weights[j][i];
+            fill(g, g + in_features, 0.0f);
+            // Percorre as linhas por fora: cada g[c] recebe as parcelas na mesma ordem.
+            for (int r = 0; r < out_features; ++r) {
+                const float* __restrict w = weights.data() + r * in_features;
+                const float dr = d[r];
+                for (int c = 0; c < in_features; ++c) {
+                    g[c] += dr * w[c];
                 }
-                g[i] = sum;
             }
         }
 
@@ -103,7 +103,7 @@ public:
         // O gradiente do viés é o próprio delta.
         const float* __restrict x = last_input;
         for (int i = 0; i < out_features; ++i) {
-            float* __restrict w = weights[i].data();
+            float* __restrict w = weights.data() + i * in_features;
             const float di = d[i];
             for (int j = 0; j < in_features; ++j) {
                 w[j] -= learning_rate * (di * x[j]);
@@ -121,10 +121,8 @@ public:
             memcpy(&bits, &valor, sizeof bits);
             h = (h ^ bits) * 1099511628211ULL;
         };
-        for (const auto& row : weights) {
-            for (float weight : row) {
-                misturar(weight);
-            }
+        for (float weight : weights) {
+            misturar(weight);
         }
         for (float b : bias) {
             misturar(b);
