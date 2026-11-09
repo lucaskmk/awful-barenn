@@ -1,0 +1,6 @@
+residente, lote 1 contra legado: OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+residente, lote 128 contra CPU: OK: saida identica a referencia (Hash dos pesos 3d47e63baa129c93)
+copia, lote 1 contra legado: OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+copia, lote 128 contra CPU: OK: saida identica a referencia (Hash dos pesos 3d47e63baa129c93)
+streams, lote 1 contra legado: OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+streams, lote 128 contra CPU: OK: saida identica a referencia (Hash dos pesos 3d47e63baa129c93)

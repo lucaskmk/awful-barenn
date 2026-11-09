@@ -1,0 +1,11 @@
+janela capturada: 0.034708 s
+kernels: 3061 em 0.027261 s (78.5% da janela)
+copias: 3071 em 0.008193 s (23.6% da janela), 53.010 MB
+GPU sem trabalho: 0.006122 s (17.6% da janela)
+tempo medio de kernel: 8906 ns
+tempo medio de copia: 2668 ns
+operacoes de GPU por ms: 176.7
+por kernel (nome, instancias, total s, medio ns):
+  kernel_atualiza: 1530, 0.010366, 6775
+  kernel_lote: 1530, 0.010084, 6591
+  kernel_prever: 1, 0.006810, 6810311

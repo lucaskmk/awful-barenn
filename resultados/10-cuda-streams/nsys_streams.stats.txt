@@ -1,0 +1,59 @@
+Generating SQLite file resultados/10-cuda-streams/nsys_streams.sqlite from resultados/10-cuda-streams/nsys_streams.nsys-rep
+Processing [resultados/10-cuda-streams/nsys_streams.sqlite] with [/opt/ohpc/pub/spack/opt/spack/linux-skylake/cuda-12.8.1-hk7c4l6fpeucmtbivmr7kn73dnkarzyt/nsight-systems-2024.6.2/host-linux-x64/reports/cuda_gpu_kern_sum.py]... 
+
+ ** CUDA GPU Kernel Summary (cuda_gpu_kern_sum):
+
++----------+-----------------+-----------+-------------+-------------+-----------+-----------+-------------+------------------------------------------------------------------------------------------------------+
+| Time (%) | Total Time (ns) | Instances |  Avg (ns)   |  Med (ns)   | Min (ns)  | Max (ns)  | StdDev (ns) |                                                 Name                                                 |
++----------+-----------------+-----------+-------------+-------------+-----------+-----------+-------------+------------------------------------------------------------------------------------------------------+
+|     38.0 |      10,366,476 |     1,530 |     6,775.5 |     6,784.0 |     6,656 |     7,296 |        46.4 | <unnamed>::kernel_atualiza(<unnamed>::Rede, <unnamed>::EstadoLote, const float *, int, float)        |
+|     37.0 |      10,084,265 |     1,530 |     6,591.0 |     6,592.0 |     6,495 |     7,200 |        36.3 | <unnamed>::kernel_lote(const float *, const int *, int, int, <unnamed>::Rede, <unnamed>::EstadoLote… |
+|     25.0 |       6,810,311 |         1 | 6,810,311.0 | 6,810,311.0 | 6,810,311 | 6,810,311 |         0.0 | <unnamed>::kernel_prever(const float *, int, <unnamed>::Rede, float *, float *, float *)             |
++----------+-----------------+-----------+-------------+-------------+-----------+-----------+-------------+------------------------------------------------------------------------------------------------------+
+
+Processing [resultados/10-cuda-streams/nsys_streams.sqlite] with [/opt/ohpc/pub/spack/opt/spack/linux-skylake/cuda-12.8.1-hk7c4l6fpeucmtbivmr7kn73dnkarzyt/nsight-systems-2024.6.2/host-linux-x64/reports/cuda_gpu_mem_time_sum.py]... 
+
+ ** CUDA GPU MemOps Summary (by Time) (cuda_gpu_mem_time_sum):
+
++----------+-----------------+-------+----------+----------+----------+----------+-------------+------------------------------+
+| Time (%) | Total Time (ns) | Count | Avg (ns) | Med (ns) | Min (ns) | Max (ns) | StdDev (ns) |          Operation           |
++----------+-----------------+-------+----------+----------+----------+----------+-------------+------------------------------+
+|     99.2 |       8,126,318 | 3,069 |  2,647.9 |  1,536.0 |      384 |   78,463 |     2,038.9 | [CUDA memcpy Host-to-Device] |
+|      0.8 |          66,559 |     2 | 33,279.5 | 33,279.5 |    6,336 |   60,223 |    38,103.9 | [CUDA memcpy Device-to-Host] |
++----------+-----------------+-------+----------+----------+----------+----------+-------------+------------------------------+
+
+Processing [resultados/10-cuda-streams/nsys_streams.sqlite] with [/opt/ohpc/pub/spack/opt/spack/linux-skylake/cuda-12.8.1-hk7c4l6fpeucmtbivmr7kn73dnkarzyt/nsight-systems-2024.6.2/host-linux-x64/reports/cuda_gpu_mem_size_sum.py]... 
+
+ ** CUDA GPU MemOps Summary (by Size) (cuda_gpu_mem_size_sum):
+
++------------+-------+----------+----------+----------+----------+-------------+------------------------------+
+| Total (MB) | Count | Avg (MB) | Med (MB) | Min (MB) | Max (MB) | StdDev (MB) |          Operation           |
++------------+-------+----------+----------+----------+----------+-------------+------------------------------+
+|     52.158 | 3,069 |    0.017 |    0.002 |    0.000 |    0.979 |       0.025 | [CUDA memcpy Host-to-Device] |
+|      0.852 |     2 |    0.426 |    0.426 |    0.072 |    0.780 |       0.501 | [CUDA memcpy Device-to-Host] |
++------------+-------+----------+----------+----------+----------+-------------+------------------------------+
+
+Processing [resultados/10-cuda-streams/nsys_streams.sqlite] with [/opt/ohpc/pub/spack/opt/spack/linux-skylake/cuda-12.8.1-hk7c4l6fpeucmtbivmr7kn73dnkarzyt/nsight-systems-2024.6.2/host-linux-x64/reports/cuda_api_sum.py]... 
+
+ ** CUDA API Summary (cuda_api_sum):
+
++----------+-----------------+-----------+-------------+-------------+-----------+------------+--------------+------------------------+
+| Time (%) | Total Time (ns) | Num Calls |  Avg (ns)   |  Med (ns)   | Min (ns)  |  Max (ns)  | StdDev (ns)  |          Name          |
++----------+-----------------+-----------+-------------+-------------+-----------+------------+--------------+------------------------+
+|     66.6 |      67,206,463 |        20 | 3,360,323.1 |     1,119.5 |       665 | 67,151,799 | 15,014,956.7 | cudaMalloc             |
+|     13.1 |      13,204,298 |     3,060 |     4,315.1 |     1,121.0 |     1,012 |     11,673 |      4,421.9 | cudaEventRecord        |
+|      7.1 |       7,173,659 |        11 |   652,150.8 |    14,742.0 |     1,506 |  6,817,413 |  2,045,240.4 | cudaMemcpy             |
+|      4.4 |       4,440,306 |         1 | 4,440,306.0 | 4,440,306.0 | 4,440,306 |  4,440,306 |          0.0 | cudaDeviceSynchronize  |
+|      4.0 |       4,041,205 |     3,061 |     1,320.2 |     1,237.0 |     1,145 |     85,911 |      1,556.6 | cudaLaunchKernel       |
+|      3.5 |       3,538,861 |     3,060 |     1,156.5 |     1,141.0 |       957 |      5,692 |        198.8 | cudaMemcpyAsync        |
+|      0.6 |         637,176 |     3,058 |       208.4 |       207.0 |       190 |      1,818 |         45.5 | cudaStreamWaitEvent    |
+|      0.4 |         361,398 |         2 |   180,699.0 |   180,699.0 |     2,208 |    359,190 |    252,424.4 | cudaHostAlloc          |
+|      0.2 |         176,288 |         2 |    88,144.0 |    88,144.0 |     2,279 |    174,009 |    121,431.4 | cudaFreeHost           |
+|      0.1 |          88,803 |        20 |     4,440.1 |     1,220.0 |       769 |     42,072 |     10,089.7 | cudaFree               |
+|      0.0 |          13,364 |         2 |     6,682.0 |     6,682.0 |     1,091 |     12,273 |      7,906.9 | cudaStreamCreate       |
+|      0.0 |           3,621 |         2 |     1,810.5 |     1,810.5 |       654 |      2,967 |      1,635.5 | cudaStreamDestroy      |
+|      0.0 |           3,482 |         4 |       870.5 |       502.0 |       182 |      2,296 |        993.9 | cudaEventCreate        |
+|      0.0 |           3,104 |         4 |       776.0 |       261.5 |       187 |      2,394 |      1,079.2 | cudaEventDestroy       |
+|      0.0 |             780 |         1 |       780.0 |       780.0 |       780 |        780 |          0.0 | cuModuleGetLoadingMode |
++----------+-----------------+-----------+-------------+-------------+-----------+------------+--------------+------------------------+
+
