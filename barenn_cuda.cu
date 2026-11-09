@@ -53,6 +53,27 @@ void recebe(T* destino, const T* origem, size_t elementos) {
           "cudaMemcpy para o host");
 }
 
+// De onde vêm as imagens de cada lote.
+// residente: o conjunto inteiro fica na GPU, o melhor quando ele cabe.
+// copia: cada lote sobe do host com uma cópia bloqueante.
+// streams: cada lote sobe em uma stream própria enquanto a GPU calcula o lote anterior.
+enum class ModoDados { residente, copia, streams };
+
+ModoDados le_modo_dados() {
+    const char* valor = getenv("BARENN_DADOS");
+    const string modo = valor ? valor : "residente";
+    if (modo == "residente") return ModoDados::residente;
+    if (modo == "copia") return ModoDados::copia;
+    if (modo == "streams") return ModoDados::streams;
+    throw runtime_error("BARENN_DADOS deve ser residente, copia ou streams.");
+}
+
+// Área na GPU que recebe um lote vindo do host.
+struct BufferLote {
+    float* imagens;
+    int* rotulos;
+};
+
 // Pesos e vieses da rede na memória da GPU, por linha: w[i * entradas + j].
 struct Rede {
     float* w1;
@@ -494,23 +515,85 @@ int main(int argc, char** argv) {
         envia(rotulos_gpu, treino.rotulos.data(), treino.rotulos.size());
         envia(teste_gpu, teste.imagens.data(), teste.imagens.size());
 
+        // Nos modos com cópia por lote, os dados ficam em memória fixada do host e a GPU
+        // só guarda dois lotes: o que está calculando e o próximo, que já vem chegando.
+        const ModoDados modo = le_modo_dados();
+        float* imagens_host = nullptr;
+        int* rotulos_host = nullptr;
+        BufferLote buffers[2] = {};
+        cudaStream_t stream_copia = 0;
+        cudaStream_t stream_calculo = 0;
+        cudaEvent_t chegou[2] = {};
+        cudaEvent_t livre[2] = {};
+        if (modo != ModoDados::residente) {
+            checa(cudaMallocHost(&imagens_host, treino.imagens.size() * sizeof(float)), "cudaMallocHost");
+            checa(cudaMallocHost(&rotulos_host, treino.rotulos.size() * sizeof(int)), "cudaMallocHost");
+            memcpy(imagens_host, treino.imagens.data(), treino.imagens.size() * sizeof(float));
+            memcpy(rotulos_host, treino.rotulos.data(), treino.rotulos.size() * sizeof(int));
+            for (auto& buffer : buffers) {
+                buffer.imagens = aloca_gpu<float>(lote * entradas1);
+                buffer.rotulos = aloca_gpu<int>(lote);
+            }
+        }
+        if (modo == ModoDados::streams) {
+            checa(cudaStreamCreate(&stream_copia), "cudaStreamCreate");
+            checa(cudaStreamCreate(&stream_calculo), "cudaStreamCreate");
+            for (int b = 0; b < 2; ++b) {
+                checa(cudaEventCreate(&chegou[b]), "cudaEventCreate");
+                checa(cudaEventCreate(&livre[b]), "cudaEventCreate");
+            }
+        }
+
         // Perda de cada amostra em cada época, baixada só no final.
         float* perdas_gpu = aloca_gpu<float>(static_cast<size_t>(amostras) * Barenn::epocas);
 
         // A medição inclui forward, perda e backward de todas as épocas.
         const auto inicio = chrono::steady_clock::now();
+        long passo = 0;
         for (int epoca = 0; epoca < Barenn::epocas; ++epoca) {
             // Uma época percorre todo o conjunto na ordem do arquivo.
             for (int ini = 0; ini < amostras; ini += lote) {
                 const int tam = min(lote, amostras - ini);
                 const int blocos = (tam + amostras_bloco - 1) / amostras_bloco;
+                const size_t bytes_imagens = static_cast<size_t>(tam) * entradas1 * sizeof(float);
+                const size_t bytes_rotulos = static_cast<size_t>(tam) * sizeof(int);
                 const float* imagens_lote = imagens_gpu + ini * entradas1;
-                kernel_lote<<<blocos, threads_bloco, shared_lote>>>(
-                    imagens_lote, rotulos_gpu + ini, tam, amostras_bloco, rede, estado,
+                const int* rotulos_lote = rotulos_gpu + ini;
+                const int b = passo % 2;
+                if (modo == ModoDados::copia) {
+                    checa(cudaMemcpy(buffers[0].imagens, imagens_host + ini * entradas1,
+                                     bytes_imagens, cudaMemcpyHostToDevice), "cudaMemcpy");
+                    checa(cudaMemcpy(buffers[0].rotulos, rotulos_host + ini,
+                                     bytes_rotulos, cudaMemcpyHostToDevice), "cudaMemcpy");
+                    imagens_lote = buffers[0].imagens;
+                    rotulos_lote = buffers[0].rotulos;
+                } else if (modo == ModoDados::streams) {
+                    // A cópia só escreve no buffer depois que o lote que o usou terminar.
+                    if (passo >= 2) {
+                        checa(cudaStreamWaitEvent(stream_copia, livre[b], 0), "cudaStreamWaitEvent");
+                    }
+                    checa(cudaMemcpyAsync(buffers[b].imagens, imagens_host + ini * entradas1,
+                                          bytes_imagens, cudaMemcpyHostToDevice, stream_copia),
+                          "cudaMemcpyAsync");
+                    checa(cudaMemcpyAsync(buffers[b].rotulos, rotulos_host + ini,
+                                          bytes_rotulos, cudaMemcpyHostToDevice, stream_copia),
+                          "cudaMemcpyAsync");
+                    checa(cudaEventRecord(chegou[b], stream_copia), "cudaEventRecord");
+                    // O cálculo espera este lote chegar, sem bloquear o host.
+                    checa(cudaStreamWaitEvent(stream_calculo, chegou[b], 0), "cudaStreamWaitEvent");
+                    imagens_lote = buffers[b].imagens;
+                    rotulos_lote = buffers[b].rotulos;
+                }
+                kernel_lote<<<blocos, threads_bloco, shared_lote, stream_calculo>>>(
+                    imagens_lote, rotulos_lote, tam, amostras_bloco, rede, estado,
                     perdas_gpu + static_cast<size_t>(epoca) * amostras + ini);
                 kernel_atualiza<<<grupos1 + grupos2 + grupos3, threads_atualiza,
-                                  tam * neuronios_grupo * sizeof(float)>>>(
+                                  tam * neuronios_grupo * sizeof(float), stream_calculo>>>(
                     rede, estado, imagens_lote, tam, taxa);
+                if (modo == ModoDados::streams) {
+                    checa(cudaEventRecord(livre[b], stream_calculo), "cudaEventRecord");
+                }
+                ++passo;
             }
         }
         checa(cudaDeviceSynchronize(), "treino");
@@ -581,6 +664,22 @@ int main(int argc, char** argv) {
             checa(cudaFree(p), "cudaFree");
         }
         checa(cudaFree(rotulos_gpu), "cudaFree");
+        if (modo != ModoDados::residente) {
+            checa(cudaFreeHost(imagens_host), "cudaFreeHost");
+            checa(cudaFreeHost(rotulos_host), "cudaFreeHost");
+            for (auto& buffer : buffers) {
+                checa(cudaFree(buffer.imagens), "cudaFree");
+                checa(cudaFree(buffer.rotulos), "cudaFree");
+            }
+        }
+        if (modo == ModoDados::streams) {
+            for (int b = 0; b < 2; ++b) {
+                checa(cudaEventDestroy(chegou[b]), "cudaEventDestroy");
+                checa(cudaEventDestroy(livre[b]), "cudaEventDestroy");
+            }
+            checa(cudaStreamDestroy(stream_copia), "cudaStreamDestroy");
+            checa(cudaStreamDestroy(stream_calculo), "cudaStreamDestroy");
+        }
     } catch (const exception& erro) {
         cerr << "Erro: " << erro.what() << "\n";
         return 1;
