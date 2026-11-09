@@ -1,0 +1,27 @@
+Tempo de treino 0.022653 s
+etapa 0: 4334.48 ciclos por bloco
+etapa 1: 1429.63 ciclos por bloco
+etapa 2: 565.38 ciclos por bloco
+etapa 3: 378.437 ciclos por bloco
+etapa 4: 380.771 ciclos por bloco
+etapa 5: 192.826 ciclos por bloco
+etapa 6: 503.905 ciclos por bloco
+etapa 7: 126 ciclos por bloco
+etapa 8: 432.851 ciclos por bloco
+ocupacao: SMs usados 16 | blocos 24378 | ciclos de bloco somados 204660167
+  sm 0: blocos 1530 ciclos 12858158
+  sm 1: blocos 1530 ciclos 12853214
+  sm 2: blocos 1530 ciclos 12863899
+  sm 3: blocos 1530 ciclos 12874043
+  sm 4: blocos 1530 ciclos 13047006
+  sm 5: blocos 1530 ciclos 13037805
+  sm 6: blocos 1530 ciclos 12642548
+  sm 7: blocos 1530 ciclos 12695967
+  sm 8: blocos 1530 ciclos 12858197
+  sm 9: blocos 1530 ciclos 12864385
+  sm 10: blocos 1530 ciclos 12741879
+  sm 11: blocos 1479 ciclos 12345897
+  sm 12: blocos 1530 ciclos 12776787
+  sm 13: blocos 1479 ciclos 12455337
+  sm 14: blocos 1530 ciclos 12798691
+  sm 16: blocos 1530 ciclos 12946354
