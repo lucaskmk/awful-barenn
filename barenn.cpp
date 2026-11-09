@@ -35,24 +35,24 @@ class DenseLayer {
     // A primeira camada não precisa desse gradiente e não mantém o espelho.
     vector<float> pesos_linha;
     vector<float> bias;
-    // Dados do último forward usados para calcular os gradientes.
-    // A entrada é apenas referenciada: quem chama a mantém viva até o Backward.
-    const float* last_input = nullptr;
-    vector<float> last_z;
-    // Buffers reaproveitados entre amostras, sem alocação no laço de treino.
-    vector<float> out;
+    // Estado de cada amostra do lote, em linhas contíguas, sem alocação no treino.
+    vector<float> soma;
+    vector<float> saida;
     vector<float> delta;
     vector<float> grad_in;
+    // Gradiente do lote: um acumulador por coluna de pesos.
+    vector<float> grad_pesos;
 
 public:
-    DenseLayer(int input_size, int output_size, bool is_final = false,
+    DenseLayer(int input_size, int output_size, int lote, bool is_final = false,
                bool grad_entrada = true)
         : in_features(input_size), out_features(output_size), final(is_final),
           precisa_grad_entrada(grad_entrada),
           pesos_coluna(output_size * input_size),
           pesos_linha(grad_entrada ? output_size * input_size : 0),
-          bias(output_size, 0), last_z(output_size), out(output_size),
-          delta(output_size), grad_in(input_size) {
+          bias(output_size, 0), soma(lote * output_size), saida(lote * output_size),
+          delta(lote * output_size), grad_in(lote * input_size),
+          grad_pesos(output_size * input_size) {
         // A semente fixa torna a inicialização de cada camada reproduzível.
         // Os valores são sorteados na ordem [i][j], a mesma do código original.
         mt19937 gen(1337);
@@ -68,12 +68,14 @@ public:
         }
     }
 
-    const float* Forward(const float* input) {
-        last_input = input;
+    const float* Saidas() const { return saida.data(); }
+
+    // Calcula a amostra s do lote. Os pesos não mudam durante o lote.
+    const float* Forward(const float* input, int s) {
         // Entrada, pesos e saída nunca se sobrepõem: restrict informa isso ao compilador.
         const float* __restrict x = input;
-        float* __restrict z = last_z.data();
-        float* __restrict y = out.data();
+        float* __restrict z = soma.data() + s * out_features;
+        float* __restrict y = saida.data() + s * out_features;
         copy(bias.begin(), bias.end(), z);
         // Percorre as colunas por fora: cada z[i] recebe as parcelas na mesma ordem.
         for (int j = 0; j < in_features; ++j) {
@@ -90,19 +92,19 @@ public:
         return y;
     }
 
-    const float* Backward(const float* grad_out, float learning_rate) {
+    const float* Backward(const float* grad_out, int s) {
         // Delta é o gradiente da perda em relação à soma antes da ativação.
         // Na ReLU, o gradiente passa apenas quando essa soma é positiva.
         const float* __restrict grad = grad_out;
-        const float* __restrict z = last_z.data();
-        float* __restrict d = delta.data();
+        const float* __restrict z = soma.data() + s * out_features;
+        float* __restrict d = delta.data() + s * out_features;
         for (int i = 0; i < out_features; ++i) {
             d[i] = final ? grad[i] : grad[i] * (z[i] > 0.0f ? 1.0f : 0.0f);
         }
 
         // O gradiente da entrada usa os pesos anteriores à atualização.
         // Percorre as linhas por fora: cada g[c] recebe as parcelas na mesma ordem.
-        float* __restrict g = grad_in.data();
+        float* __restrict g = grad_in.data() + s * in_features;
         if (precisa_grad_entrada) {
             fill(g, g + in_features, 0.0f);
             for (int r = 0; r < out_features; ++r) {
@@ -113,30 +115,49 @@ public:
                 }
             }
         }
+        return g;
+    }
 
-        // SGD por amostra. O gradiente do peso é delta vezes a entrada.
-        const float* __restrict x = last_input;
+    // Soma os gradientes das tam amostras e só então move os pesos. Cada peso
+    // recebe as parcelas na ordem das amostras, qualquer que seja a divisão do trabalho.
+    void Atualiza(const float* entradas_lote, int tam, float learning_rate) {
         for (int j = 0; j < in_features; ++j) {
-            float* __restrict w = pesos_coluna.data() + j * out_features;
-            const float xj = x[j];
-            for (int i = 0; i < out_features; ++i) {
-                w[i] -= learning_rate * (d[i] * xj);
-            }
-        }
-        if (precisa_grad_entrada) {
-            for (int i = 0; i < out_features; ++i) {
-                float* __restrict w = pesos_linha.data() + i * in_features;
-                const float di = d[i];
-                for (int j = 0; j < in_features; ++j) {
-                    w[j] -= learning_rate * (di * x[j]);
+            float* __restrict g = grad_pesos.data() + j * out_features;
+            fill(g, g + out_features, 0.0f);
+            // O gradiente do peso é delta vezes a entrada.
+            for (int s = 0; s < tam; ++s) {
+                const float* __restrict d = delta.data() + s * out_features;
+                const float xj = entradas_lote[s * in_features + j];
+                for (int i = 0; i < out_features; ++i) {
+                    g[i] += d[i] * xj;
                 }
+            }
+            float* __restrict w = pesos_coluna.data() + j * out_features;
+            for (int i = 0; i < out_features; ++i) {
+                w[i] -= learning_rate * g[i];
             }
         }
         // O gradiente do viés é o próprio delta.
         for (int i = 0; i < out_features; ++i) {
-            bias[i] -= learning_rate * d[i];
+            float total = 0.0f;
+            for (int s = 0; s < tam; ++s) {
+                total += delta[s * out_features + i];
+            }
+            bias[i] -= learning_rate * total;
         }
-        return g;
+        SincronizaEspelho();
+    }
+
+    // Copia os pesos novos para o espelho por linha usado no gradiente de entrada.
+    void SincronizaEspelho() {
+        if (!precisa_grad_entrada) {
+            return;
+        }
+        for (int i = 0; i < out_features; ++i) {
+            for (int j = 0; j < in_features; ++j) {
+                pesos_linha[i * in_features + j] = pesos_coluna[j * out_features + i];
+            }
+        }
     }
 
 #ifdef BARENN_HASH
@@ -244,7 +265,7 @@ void avaliar(DenseLayer& l1, DenseLayer& l2, DenseLayer& l3, const Dados& teste)
     // Só fazemos forward aqui. Os pesos ficam fixos.
     for (size_t i = 0; i < teste.tamanho(); ++i) {
         const int rotulo = teste.rotulos[i];
-        const float* escores = l3.Forward(l2.Forward(l1.Forward(teste.imagem(i))));
+        const float* escores = l3.Forward(l2.Forward(l1.Forward(teste.imagem(i), 0), 0), 0);
         // O índice do maior escore indica a classe prevista.
         int previsto = static_cast<int>(
             max_element(escores, escores + classes) - escores);
@@ -335,9 +356,9 @@ int main(int argc, char** argv) {
         constexpr int epocas = 51;
         constexpr float taxa = 0.02f;
         // Rede densa com dimensões 64 -> 32 -> 16 -> 10.
-        Barenn::DenseLayer l1(Barenn::entradas, 32, false, false);
-        Barenn::DenseLayer l2(32, 16);
-        Barenn::DenseLayer l3(16, Barenn::classes, true);
+        Barenn::DenseLayer l1(Barenn::entradas, 32, 1, false, false);
+        Barenn::DenseLayer l2(32, 16, 1);
+        Barenn::DenseLayer l3(16, Barenn::classes, 1, true);
         vector<float> gradiente(Barenn::classes);
         array<double, epocas> perdas{};
 
@@ -347,14 +368,19 @@ int main(int argc, char** argv) {
             double perda_total = 0;
             // Uma época percorre todo o conjunto na ordem do arquivo.
             for (size_t s = 0; s < treino.tamanho(); ++s) {
-                const float* escores = l3.Forward(l2.Forward(l1.Forward(treino.imagem(s))));
+                const float* imagem = treino.imagem(s);
+                const float* escores = l3.Forward(l2.Forward(l1.Forward(imagem, 0), 0), 0);
                 perda_total += Barenn::perda(escores, treino.rotulos[s], gradiente.data());
 
                 // Propaga o gradiente da última camada até a primeira.
-                // Cada Backward também atualiza os parâmetros da sua camada.
-                const float* grad3 = l3.Backward(gradiente.data(), taxa);
-                const float* grad2 = l2.Backward(grad3, taxa);
-                l1.Backward(grad2, taxa);
+                const float* grad3 = l3.Backward(gradiente.data(), 0);
+                const float* grad2 = l2.Backward(grad3, 0);
+                l1.Backward(grad2, 0);
+
+                // Com os gradientes prontos, cada camada atualiza os próprios pesos.
+                l1.Atualiza(imagem, 1, taxa);
+                l2.Atualiza(l1.Saidas(), 1, taxa);
+                l3.Atualiza(l2.Saidas(), 1, taxa);
             }
             perdas[epoca] = perda_total / treino.tamanho();
         }
