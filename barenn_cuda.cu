@@ -15,6 +15,12 @@ constexpr int neuronios3 = Barenn::classes;
 constexpr int entradas1 = Barenn::entradas;
 constexpr int entradas2 = neuronios1;
 constexpr int entradas3 = neuronios2;
+// A memória compartilhada tem 32 bancos, um por palavra. Com linhas de 64, 32 ou 16 pesos,
+// as threads de um warp cairiam no mesmo banco e seriam atendidas uma de cada vez.
+// Com passo ímpar, cada neurônio do warp lê um banco diferente.
+constexpr int passo1 = entradas1 + 1;
+constexpr int passo2 = entradas2 + 1;
+constexpr int passo3 = entradas3 + 1;
 // O kernel_atualiza agrupa os neurônios de quatro em quatro.
 constexpr int neuronios_grupo = 4;
 constexpr int grupos1 = neuronios1 / neuronios_grupo;
@@ -94,6 +100,16 @@ __device__ inline void copia(float* destino, const float* origem, int n) {
     }
 }
 
+// Copia uma matriz da memória global, por linhas contíguas, para a compartilhada com
+// o passo pedido. As threads de um warp leem endereços globais vizinhos.
+__device__ inline void copia_linhas(float* destino, const float* origem, int linhas,
+                                    int colunas, int passo) {
+    const int total = linhas * colunas;
+    for (int k = threadIdx.x; k < total; k += blockDim.x) {
+        destino[k / colunas * passo + k % colunas] = origem[k];
+    }
+}
+
 // Forward e backward de um pedaço do lote: uma thread por par amostra e neurônio.
 // O bloco traz os pesos e as imagens para a memória compartilhada e faz toda a conta lá.
 // Só escreve no estado do lote. Os pesos só mudam depois, em kernel_atualiza.
@@ -110,11 +126,11 @@ __global__ void kernel_lote(const float* __restrict__ imagens, const int* __rest
 
     // Organização da memória compartilhada: pesos e vieses, depois as linhas das amostras.
     float* w1 = area;
-    float* b1 = w1 + neuronios1 * entradas1;
+    float* b1 = w1 + neuronios1 * passo1;
     float* w2 = b1 + neuronios1;
-    float* b2 = w2 + neuronios2 * entradas2;
+    float* b2 = w2 + neuronios2 * passo2;
     float* w3 = b2 + neuronios2;
-    float* b3 = w3 + neuronios3 * entradas3;
+    float* b3 = w3 + neuronios3 * passo3;
     float* imagem = b3 + neuronios3;
     float* y1 = imagem + amostras_bloco * entradas1;
     float* y2 = y1 + amostras_bloco * neuronios1;
@@ -124,11 +140,11 @@ __global__ void kernel_lote(const float* __restrict__ imagens, const int* __rest
     float* g2 = d2 + amostras_bloco * neuronios2;
     float* d1 = g2 + amostras_bloco * entradas2;
 
-    copia(w1, rede.w1, neuronios1 * entradas1);
+    copia_linhas(w1, rede.w1, neuronios1, entradas1, passo1);
     copia(b1, rede.b1, neuronios1);
-    copia(w2, rede.w2, neuronios2 * entradas2);
+    copia_linhas(w2, rede.w2, neuronios2, entradas2, passo2);
     copia(b2, rede.b2, neuronios2);
-    copia(w3, rede.w3, neuronios3 * entradas3);
+    copia_linhas(w3, rede.w3, neuronios3, entradas3, passo3);
     copia(b3, rede.b3, neuronios3);
     copia(imagem, imagens + base * entradas1, validas * entradas1);
     __syncthreads();
@@ -140,7 +156,7 @@ __global__ void kernel_lote(const float* __restrict__ imagens, const int* __rest
         const int i = tid % neuronios1;
         if (s < validas) {
             const float* x = imagem + s * entradas1;
-            const float* w = w1 + i * entradas1;
+            const float* w = w1 + i * passo1;
             float z = b1[i];
             for (int j = 0; j < entradas1; ++j) {
                 z += x[j] * w[j];
@@ -157,7 +173,7 @@ __global__ void kernel_lote(const float* __restrict__ imagens, const int* __rest
         const int i = tid % neuronios2;
         if (s < validas) {
             const float* x = y1 + s * entradas2;
-            const float* w = w2 + i * entradas2;
+            const float* w = w2 + i * passo2;
             float z = b2[i];
             for (int j = 0; j < entradas2; ++j) {
                 z += x[j] * w[j];
@@ -174,7 +190,7 @@ __global__ void kernel_lote(const float* __restrict__ imagens, const int* __rest
         const int i = tid % neuronios3;
         if (s < validas) {
             const float* x = y2 + s * entradas3;
-            const float* w = w3 + i * entradas3;
+            const float* w = w3 + i * passo3;
             float z = b3[i];
             for (int j = 0; j < entradas3; ++j) {
                 z += x[j] * w[j];
@@ -206,7 +222,7 @@ __global__ void kernel_lote(const float* __restrict__ imagens, const int* __rest
             const float* e = erro + s * neuronios3;
             float g = 0.0f;
             for (int r = 0; r < neuronios3; ++r) {
-                g += e[r] * w3[r * entradas3 + c];
+                g += e[r] * w3[r * passo3 + c];
             }
             g3[s * entradas3 + c] = g;
         }
@@ -234,7 +250,7 @@ __global__ void kernel_lote(const float* __restrict__ imagens, const int* __rest
             const float* d = d2 + s * neuronios2;
             float g = 0.0f;
             for (int r = 0; r < neuronios2; ++r) {
-                g += d[r] * w2[r * entradas2 + c];
+                g += d[r] * w2[r * passo2 + c];
             }
             g2[s * entradas2 + c] = g;
         }
@@ -438,9 +454,9 @@ int main(int argc, char** argv) {
         const int threads_bloco = amostras_bloco * neuronios1;
         // Pesos e vieses de toda a rede e, para cada amostra do bloco, a imagem e os
         // resultados intermediários de todas as etapas.
-        constexpr size_t floats_rede = neuronios1 * entradas1 + neuronios1 +
-                                       neuronios2 * entradas2 + neuronios2 +
-                                       neuronios3 * entradas3 + neuronios3;
+        constexpr size_t floats_rede = neuronios1 * passo1 + neuronios1 +
+                                       neuronios2 * passo2 + neuronios2 +
+                                       neuronios3 * passo3 + neuronios3;
         constexpr size_t floats_amostra = entradas1 + neuronios1 + neuronios2 + neuronios3 +
                                           entradas3 + neuronios2 + entradas2 + neuronios1;
         const size_t shared_lote = (floats_rede + amostras_bloco * floats_amostra) * sizeof(float);
