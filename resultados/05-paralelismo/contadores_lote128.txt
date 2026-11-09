@@ -1,0 +1,44 @@
+--- T=1
+Tempo de treino 0.094462 s
+contadores (modo usuario, PMU dos P-cores):
+  instrucoes           2509572471   por 1000 instr:   1000.000   tempo contado: 100.0%
+  ciclos                620855369   por 1000 instr:    247.395   tempo contado: 100.0%
+  ciclos_ref            225898036   por 1000 instr:     90.015   tempo contado: 100.0%
+  falhas_L1D              4055920   por 1000 instr:      1.616   tempo contado: 100.0%
+  acessos_LLC              101135   por 1000 instr:      0.040   tempo contado: 100.0%
+  falhas_LLC                 4945   por 1000 instr:      0.002   tempo contado: 100.0%
+  falhas_desvio           2717036   por 1000 instr:      1.083   tempo contado: 100.0%
+  IPC 4.042 | tempo total 0.116144 s
+--- T=2
+Tempo de treino 0.057715 s
+contadores (modo usuario, PMU dos P-cores):
+  instrucoes           2511234254   por 1000 instr:   1000.000   tempo contado: 100.0%
+  ciclos                736986960   por 1000 instr:    293.476   tempo contado: 100.0%
+  ciclos_ref            268254792   por 1000 instr:    106.822   tempo contado: 100.0%
+  falhas_L1D              6040664   por 1000 instr:      2.405   tempo contado: 100.0%
+  acessos_LLC             5714479   por 1000 instr:      2.276   tempo contado: 100.0%
+  falhas_LLC                 1447   por 1000 instr:      0.001   tempo contado: 100.0%
+  falhas_desvio           2775355   por 1000 instr:      1.105   tempo contado: 100.0%
+  IPC 3.407 | tempo total 0.079232 s
+--- T=4
+Tempo de treino 0.033690 s
+contadores (modo usuario, PMU dos P-cores):
+  instrucoes           2515055094   por 1000 instr:   1000.000   tempo contado: 100.0%
+  ciclos                846145113   por 1000 instr:    336.432   tempo contado: 100.0%
+  ciclos_ref            308093656   por 1000 instr:    122.500   tempo contado: 100.0%
+  falhas_L1D             10794569   por 1000 instr:      4.292   tempo contado: 100.0%
+  acessos_LLC             8836805   por 1000 instr:      3.514   tempo contado: 100.0%
+  falhas_LLC                 2507   por 1000 instr:      0.001   tempo contado: 100.0%
+  falhas_desvio           2819108   por 1000 instr:      1.121   tempo contado: 100.0%
+  IPC 2.972 | tempo total 0.055701 s
+--- T=8
+Tempo de treino 0.021616 s
+contadores (modo usuario, PMU dos P-cores):
+  instrucoes           2523157043   por 1000 instr:   1000.000   tempo contado: 100.0%
+  ciclos               1059341824   por 1000 instr:    419.848   tempo contado: 100.0%
+  ciclos_ref            386421204   por 1000 instr:    153.150   tempo contado: 100.0%
+  falhas_L1D             17444957   por 1000 instr:      6.914   tempo contado: 100.0%
+  acessos_LLC            14901009   por 1000 instr:      5.906   tempo contado: 100.0%
+  falhas_LLC                 1974   por 1000 instr:      0.001   tempo contado: 100.0%
+  falhas_desvio           2817591   por 1000 instr:      1.117   tempo contado: 100.0%
+  IPC 2.382 | tempo total 0.043445 s
