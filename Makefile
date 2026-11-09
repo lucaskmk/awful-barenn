@@ -4,7 +4,7 @@ CXXFLAGS ?= -O3 -std=c++17 -march=x86-64-v3 -ffp-contract=off -fopenmp
 
 .PHONY: all clean
 
-all: barenn barenn_hash
+all: barenn barenn_hash contadores
 
 barenn: barenn.cpp
 	$(CXX) $(CXXFLAGS) $< -o $@
@@ -13,5 +13,9 @@ barenn: barenn.cpp
 barenn_hash: barenn.cpp
 	$(CXX) $(CXXFLAGS) -DBARENN_HASH $< -o $@
 
+# Conta eventos de hardware do programa medido, ja que o Franky nao tem perf.
+contadores: scripts/contadores.c
+	$(CC) -O2 $< -o $@
+
 clean:
-	rm -f barenn barenn_hash
+	rm -f barenn barenn_hash contadores

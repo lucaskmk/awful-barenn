@@ -72,6 +72,7 @@ int main(int argc, char** argv) {
     const struct evento eventos[] = {
         {"instrucoes", PERF_TYPE_HARDWARE, pmu | PERF_COUNT_HW_INSTRUCTIONS},
         {"ciclos", PERF_TYPE_HARDWARE, pmu | PERF_COUNT_HW_CPU_CYCLES},
+        {"ciclos_ref", PERF_TYPE_HARDWARE, pmu | PERF_COUNT_HW_REF_CPU_CYCLES},
         {"falhas_L1D", PERF_TYPE_HW_CACHE, pmu | l1d_leitura_falha},
         {"acessos_LLC", PERF_TYPE_HARDWARE, pmu | PERF_COUNT_HW_CACHE_REFERENCES},
         {"falhas_LLC", PERF_TYPE_HARDWARE, pmu | PERF_COUNT_HW_CACHE_MISSES},
