@@ -20,6 +20,10 @@ barenn_cuda: barenn_cuda.cu comum.h
 barenn_cuda_hash: barenn_cuda.cu comum.h
 	$(NVCC) $(NVCCFLAGS) -DBARENN_HASH $< -o $@
 
+# Instrumentada: conta quantos blocos cada SM executou e por quantos ciclos.
+barenn_cuda_ocupacao: barenn_cuda.cu comum.h
+	$(NVCC) $(NVCCFLAGS) -DBARENN_OCUPACAO $< -o $@
+
 barenn: barenn.cpp comum.h
 	$(CXX) $(CXXFLAGS) $< -o $@
 
@@ -32,4 +36,4 @@ contadores: scripts/contadores.c
 	$(CC) -O2 $< -o $@
 
 clean:
-	rm -f barenn barenn_hash contadores barenn_cuda barenn_cuda_hash
+	rm -f barenn barenn_hash contadores barenn_cuda barenn_cuda_hash barenn_cuda_ocupacao

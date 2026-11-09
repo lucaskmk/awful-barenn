@@ -1,0 +1,18 @@
+Tempo de treino 0.042671 s
+ocupacao: SMs usados 16 | blocos 24378 | ciclos de bloco somados 547453549
+  sm 0: blocos 1530 ciclos 34406546
+  sm 1: blocos 1530 ciclos 34424610
+  sm 2: blocos 1530 ciclos 34432664
+  sm 3: blocos 1530 ciclos 34333766
+  sm 4: blocos 1530 ciclos 34418617
+  sm 5: blocos 1530 ciclos 34326523
+  sm 6: blocos 1530 ciclos 34391404
+  sm 7: blocos 1530 ciclos 34351179
+  sm 8: blocos 1530 ciclos 34353330
+  sm 9: blocos 1530 ciclos 34218266
+  sm 10: blocos 1530 ciclos 34328615
+  sm 11: blocos 1479 ciclos 33219776
+  sm 12: blocos 1530 ciclos 34327827
+  sm 13: blocos 1479 ciclos 33277366
+  sm 14: blocos 1530 ciclos 34285643
+  sm 16: blocos 1530 ciclos 34357417

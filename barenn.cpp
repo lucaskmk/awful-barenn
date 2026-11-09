@@ -172,17 +172,8 @@ int main(int argc, char** argv) {
             throw runtime_error("Use arquivos distintos para treino e teste.");
         }
 
-        // Amostras por atualização. Com BARENN_LOTE=1, o treino é o SGD original bit a bit.
-        int lote = 128;
-        if (const char* valor = getenv("BARENN_LOTE")) {
-            lote = atoi(valor);
-        }
-        if (lote < 1 || static_cast<size_t>(lote) > treino.tamanho()) {
-            throw runtime_error("BARENN_LOTE deve estar entre 1 e o tamanho do treino.");
-        }
-        // Até 32 amostras a taxa original é estável. Acima disso ela cai com o lote,
-        // para manter taxa x lote em 0.64, o limite medido antes de a perda divergir.
-        const float taxa = lote <= 32 ? 0.02f : 0.02f * 32 / lote;
+        const int lote = Barenn::le_lote(treino.tamanho());
+        const float taxa = Barenn::taxa_do_lote(lote);
         // Rede densa com dimensões 64 -> 32 -> 16 -> 10.
         Barenn::DenseLayer l1(Barenn::entradas, 32, lote, false, false);
         Barenn::DenseLayer l2(32, 16, lote);
