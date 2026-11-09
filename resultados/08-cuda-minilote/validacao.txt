@@ -1,0 +1,5 @@
+GPU lote 1 contra legado: OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+GPU lote 128 contra CPU: OK: saida identica a referencia (Hash dos pesos 3d47e63baa129c93)
+lote 32 | GPU: Hash dos pesos 96b428a292a6379f | CPU: Hash dos pesos 96b428a292a6379f
+lote 64 | GPU: Hash dos pesos 17a4fc7af1ba86a5 | CPU: Hash dos pesos 17a4fc7af1ba86a5
+lote 256 | GPU: Hash dos pesos 5c757083bb4933c0 | CPU: Hash dos pesos 5c757083bb4933c0

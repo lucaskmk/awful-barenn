@@ -1,0 +1,15 @@
+no: compute20
+Model name:                           Intel(R) Core(TM) i9-14900
+binario: ./barenn_cuda | repeticoes: 10 | cpu: 8 | OMP_NUM_THREADS: nao definido | BARENN_LOTE: padrao
+1 0.041018 2.191751
+2 0.040995 2.178254
+3 0.041000 2.155001
+4 0.040994 2.187163
+5 0.041033 2.173226
+6 0.041056 2.189165
+7 0.040992 2.166522
+8 0.041008 2.150507
+9 0.041054 2.181545
+10 0.041041 2.176643
+treino: media 0.041019 s | desvio 0.000024 s | min 0.040992 s | max 0.041056 s
+total:  media 2.174978 s | desvio 0.013267 s
