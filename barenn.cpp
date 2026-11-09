@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -354,33 +355,50 @@ int main(int argc, char** argv) {
         }
 
         constexpr int epocas = 51;
-        constexpr float taxa = 0.02f;
+        // Amostras por atualização. Com 1, o treino é o SGD original bit a bit.
+        int lote = 1;
+        if (const char* valor = getenv("BARENN_LOTE")) {
+            lote = atoi(valor);
+        }
+        if (lote < 1 || static_cast<size_t>(lote) > treino.tamanho()) {
+            throw runtime_error("BARENN_LOTE deve estar entre 1 e o tamanho do treino.");
+        }
+        // Até 32 amostras a taxa original é estável. Acima disso ela cai com o lote,
+        // para manter taxa x lote em 0.64, o limite medido antes de a perda divergir.
+        const float taxa = lote <= 32 ? 0.02f : 0.02f * 32 / lote;
         // Rede densa com dimensões 64 -> 32 -> 16 -> 10.
-        Barenn::DenseLayer l1(Barenn::entradas, 32, 1, false, false);
-        Barenn::DenseLayer l2(32, 16, 1);
-        Barenn::DenseLayer l3(16, Barenn::classes, 1, true);
-        vector<float> gradiente(Barenn::classes);
+        Barenn::DenseLayer l1(Barenn::entradas, 32, lote, false, false);
+        Barenn::DenseLayer l2(32, 16, lote);
+        Barenn::DenseLayer l3(16, Barenn::classes, lote, true);
+        vector<float> gradiente(lote * Barenn::classes);
+        vector<float> perda_amostra(treino.tamanho());
         array<double, epocas> perdas{};
 
         // A medição inclui forward, perda e backward de todas as épocas.
         const auto inicio = chrono::steady_clock::now();
         for (int epoca = 0; epoca < epocas; ++epoca) {
-            double perda_total = 0;
             // Uma época percorre todo o conjunto na ordem do arquivo.
-            for (size_t s = 0; s < treino.tamanho(); ++s) {
-                const float* imagem = treino.imagem(s);
-                const float* escores = l3.Forward(l2.Forward(l1.Forward(imagem, 0), 0), 0);
-                perda_total += Barenn::perda(escores, treino.rotulos[s], gradiente.data());
+            for (size_t ini = 0; ini < treino.tamanho(); ini += lote) {
+                const int tam = static_cast<int>(min<size_t>(lote, treino.tamanho() - ini));
+                for (int s = 0; s < tam; ++s) {
+                    const float* imagem = treino.imagem(ini + s);
+                    const float* escores = l3.Forward(l2.Forward(l1.Forward(imagem, s), s), s);
+                    float* grad = gradiente.data() + s * Barenn::classes;
+                    perda_amostra[ini + s] = Barenn::perda(escores, treino.rotulos[ini + s], grad);
 
-                // Propaga o gradiente da última camada até a primeira.
-                const float* grad3 = l3.Backward(gradiente.data(), 0);
-                const float* grad2 = l2.Backward(grad3, 0);
-                l1.Backward(grad2, 0);
-
-                // Com os gradientes prontos, cada camada atualiza os próprios pesos.
-                l1.Atualiza(imagem, 1, taxa);
-                l2.Atualiza(l1.Saidas(), 1, taxa);
-                l3.Atualiza(l2.Saidas(), 1, taxa);
+                    // Propaga o gradiente da última camada até a primeira.
+                    const float* grad3 = l3.Backward(grad, s);
+                    const float* grad2 = l2.Backward(grad3, s);
+                    l1.Backward(grad2, s);
+                }
+                // Com os gradientes do lote prontos, cada camada atualiza os próprios pesos.
+                l1.Atualiza(treino.imagem(ini), tam, taxa);
+                l2.Atualiza(l1.Saidas(), tam, taxa);
+                l3.Atualiza(l2.Saidas(), tam, taxa);
+            }
+            double perda_total = 0;
+            for (float valor : perda_amostra) {
+                perda_total += valor;
             }
             perdas[epoca] = perda_total / treino.tamanho();
         }
@@ -393,7 +411,8 @@ int main(int argc, char** argv) {
             cout << "Epoca " << setw(2) << epoca + 1 << "/" << epocas
                  << " | perda media " << perdas[epoca] << "\n";
         }
-        cout << "Tempo de treino " << tempo.count() << " s\n";
+        cout << "Tempo de treino " << setprecision(6) << tempo.count() << " s\n"
+             << setprecision(4);
 #ifdef BARENN_HASH
         uint64_t hash_pesos = 1469598103934665603ULL;
         hash_pesos = l1.Hash(hash_pesos);
