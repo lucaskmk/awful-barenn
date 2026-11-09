@@ -6,11 +6,11 @@ CXXFLAGS ?= -O3 -std=c++17 -march=x86-64-v3 -ffp-contract=off -fopenmp
 
 all: barenn barenn_hash contadores
 
-barenn: barenn.cpp
+barenn: barenn.cpp comum.h
 	$(CXX) $(CXXFLAGS) $< -o $@
 
 # Mesma compilacao, imprimindo tambem o hash dos pesos treinados.
-barenn_hash: barenn.cpp
+barenn_hash: barenn.cpp comum.h
 	$(CXX) $(CXXFLAGS) -DBARENN_HASH $< -o $@
 
 # Conta eventos de hardware do programa medido, ja que o Franky nao tem perf.

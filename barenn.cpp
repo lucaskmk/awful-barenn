@@ -1,30 +1,12 @@
-#include <algorithm>
-#include <array>
 #include <chrono>
-#include <cmath>
-#include <cstdint>
-#include <cstdlib>
-#include <cstring>
 #include <filesystem>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <random>
-#include <sstream>
-#include <stdexcept>
-#include <string>
-#include <utility>
-#include <vector>
+
+#include "comum.h"
 
 #include <omp.h>
 
-using namespace std;
-
 namespace Barenn {
 
-// Cada imagem tem 64 atributos e pertence a uma das dez classes.
-constexpr int entradas = 64;
-constexpr int classes = 10;
 // A maior camada da rede tem 32 neurônios.
 constexpr int maximo_neuronios = 32;
 
@@ -55,19 +37,12 @@ public:
           pesos_linha(grad_entrada ? output_size * input_size : 0),
           bias(output_size, 0), soma(lote * output_size), saida(lote * output_size),
           delta(lote * output_size), grad_in(lote * input_size) {
-        // A semente fixa torna a inicialização de cada camada reproduzível.
-        // Os valores são sorteados na ordem [i][j], a mesma do código original.
-        mt19937 gen(1337);
-        uniform_real_distribution<float> distribution(-0.05f, 0.05f);
-        for (int i = 0; i < out_features; ++i) {
-            for (int j = 0; j < in_features; ++j) {
-                const float valor = distribution(gen);
-                pesos_coluna[j * out_features + i] = valor;
-                if (precisa_grad_entrada) {
-                    pesos_linha[i * in_features + j] = valor;
-                }
+        inicializa_pesos(in_features, out_features, [this](int i, int j, float valor) {
+            pesos_coluna[j * out_features + i] = valor;
+            if (precisa_grad_entrada) {
+                pesos_linha[i * in_features + j] = valor;
             }
-        }
+        });
     }
 
     const float* Saidas() const { return saida.data(); }
@@ -166,180 +141,19 @@ public:
     }
 
 #ifdef BARENN_HASH
-    // FNV-1a sobre os bits de pesos e vieses, em ordem canônica [i][j].
     uint64_t Hash(uint64_t h) const {
-        auto misturar = [&h](float valor) {
-            uint32_t bits;
-            memcpy(&bits, &valor, sizeof bits);
-            h = (h ^ bits) * 1099511628211ULL;
-        };
         for (int i = 0; i < out_features; ++i) {
             for (int j = 0; j < in_features; ++j) {
-                misturar(pesos_coluna[j * out_features + i]);
+                h = mistura_hash(h, pesos_coluna[j * out_features + i]);
             }
         }
         for (float b : bias) {
-            misturar(b);
+            h = mistura_hash(h, b);
         }
         return h;
     }
 #endif
 };
-
-// As imagens ficam em um único bloco, uma linha de 64 atributos por amostra.
-struct Dados {
-    vector<float> imagens;
-    vector<int> rotulos;
-
-    size_t tamanho() const { return rotulos.size(); }
-    const float* imagem(size_t i) const { return imagens.data() + i * entradas; }
-};
-
-Dados ler_dados(const string& caminho) {
-    ifstream arquivo(caminho);
-    if (!arquivo) {
-        throw runtime_error("Não foi possível abrir " + caminho);
-    }
-
-    Dados dados;
-    string linha;
-    size_t numero_linha = 0;
-    while (getline(arquivo, linha)) {
-        ++numero_linha;
-        istringstream campos(linha);
-        int lidos = 0;
-        int rotulo = -1;
-        // Cada atributo deve ser seguido por vírgula, inclusive o último.
-        for (int i = 0; i < entradas; ++i) {
-            float valor;
-            char separador;
-            if (!(campos >> valor >> separador) || separador != ',' ||
-                !isfinite(valor) || valor < 0 || valor > 16) {
-                break;
-            }
-            // Converte os valores de [0, 16] para [0, 1].
-            dados.imagens.push_back(valor / 16.0f);
-            ++lidos;
-        }
-        // Depois dos atributos, deve restar apenas o rótulo de 0 a 9.
-        if (lidos != entradas || !(campos >> rotulo) ||
-            rotulo < 0 || rotulo >= classes || !(campos >> ws).eof()) {
-            throw runtime_error(caminho + ":" + to_string(numero_linha) +
-                " — esperados 64 atributos de 0 a 16 e um rótulo inteiro de 0 a 9");
-        }
-        dados.rotulos.push_back(rotulo);
-    }
-    if (arquivo.bad() || dados.rotulos.empty()) {
-        throw runtime_error("Falha de leitura ou arquivo vazio: " + caminho);
-    }
-    return dados;
-}
-
-// Calcula metade da soma dos erros quadráticos. O alvo vale 1 para a
-// classe correta e 0 para as demais. O erro também é a derivada por escore.
-float perda(const float* escores, int rotulo, float* gradiente = nullptr) {
-    float total = 0;
-    for (int i = 0; i < classes; ++i) {
-        float erro = escores[i] - (i == rotulo ? 1.0f : 0.0f);
-        total += 0.5f * erro * erro;
-        if (gradiente) {
-            gradiente[i] = erro;
-        }
-    }
-    return total;
-}
-
-void avaliar(DenseLayer& l1, DenseLayer& l2, DenseLayer& l3, const Dados& teste) {
-    struct Exemplo {
-        size_t linha;
-        int real;
-        int previsto;
-        int segundo;
-        float maior_escore;
-        float segundo_escore;
-    };
-
-    // Linhas representam a classe esperada e colunas, a classe prevista.
-    array<array<size_t, classes>, classes> confusoes{};
-    vector<Exemplo> exemplos;
-    size_t acertos = 0;
-    size_t exemplos_acerto = 0;
-    size_t exemplos_erro = 0;
-    double perda_total = 0;
-
-    // Só fazemos forward aqui. Os pesos ficam fixos.
-    for (size_t i = 0; i < teste.tamanho(); ++i) {
-        const int rotulo = teste.rotulos[i];
-        const float* escores = l3.Forward(l2.Forward(l1.Forward(teste.imagem(i), 0), 0), 0);
-        // O índice do maior escore indica a classe prevista.
-        int previsto = static_cast<int>(
-            max_element(escores, escores + classes) - escores);
-        bool acertou = previsto == rotulo;
-        acertos += acertou;
-        ++confusoes[rotulo][previsto];
-        perda_total += perda(escores, rotulo);
-
-        // Guarda até três acertos e três erros para ilustrar a saída.
-        // A acurácia usa todas as imagens, inclusive as não exibidas.
-        size_t& exemplos_tipo = acertou ? exemplos_acerto : exemplos_erro;
-        if (exemplos_tipo < 3) {
-            int segundo = previsto == 0 ? 1 : 0;
-            for (int classe = 0; classe < classes; ++classe) {
-                if (classe != previsto && escores[classe] > escores[segundo]) {
-                    segundo = classe;
-                }
-            }
-            exemplos.push_back({i + 1, rotulo, previsto, segundo,
-                                escores[previsto], escores[segundo]});
-            ++exemplos_tipo;
-        }
-    }
-
-    cout << "\nAVALIACAO FINAL\n"
-         << "Acuracia " << setprecision(1) << 100.0 * acertos / teste.tamanho()
-         << "% | " << acertos << " acertos em " << teste.tamanho() << " imagens\n"
-         << "Perda media " << setprecision(4) << perda_total / teste.tamanho() << "\n";
-
-    cout << "\nALGUMAS INFERENCIAS\n";
-    cout << "Esperado  Previsto\n";
-
-    for (const auto& exemplo : exemplos) {
-        cout << right << setw(8) << exemplo.real
-             << "  " << setw(8) << exemplo.previsto << '\n';
-    }
-
-    struct Confusao {
-        int real;
-        int previsto;
-        size_t ocorrencias;
-    };
-    vector<Confusao> erros;
-    for (int real = 0; real < classes; ++real) {
-        for (int previsto = 0; previsto < classes; ++previsto) {
-            if (real != previsto && confusoes[real][previsto] > 0) {
-                erros.push_back({real, previsto, confusoes[real][previsto]});
-            }
-        }
-    }
-    // Ordena os pares incorretos do mais frequente para o menos frequente.
-    stable_sort(erros.begin(), erros.end(), [](const auto& a, const auto& b) {
-        return a.ocorrencias > b.ocorrencias;
-    });
-    cout << "\nCONFUSOES MAIS FREQUENTES\n";
-
-    if (erros.empty()) {
-        cout << "Nenhuma neste conjunto.\n";
-    } else {
-        cout << "Esperado  Previsto  Ocorrencias\n";
-
-        for (size_t i = 0; i < min<size_t>(3, erros.size()); ++i) {
-            const auto& erro = erros[i];
-            cout << right << setw(8) << erro.real
-                << "  " << setw(8) << erro.previsto
-                << "  " << setw(11) << erro.ocorrencias << '\n';
-        }
-    }
-}
 
 } // namespace Barenn
 
@@ -358,7 +172,6 @@ int main(int argc, char** argv) {
             throw runtime_error("Use arquivos distintos para treino e teste.");
         }
 
-        constexpr int epocas = 51;
         // Amostras por atualização. Com BARENN_LOTE=1, o treino é o SGD original bit a bit.
         int lote = 128;
         if (const char* valor = getenv("BARENN_LOTE")) {
@@ -376,7 +189,7 @@ int main(int argc, char** argv) {
         Barenn::DenseLayer l3(16, Barenn::classes, lote, true);
         vector<float> gradiente(lote * Barenn::classes);
         vector<float> perda_amostra(treino.tamanho());
-        array<double, epocas> perdas{};
+        array<double, Barenn::epocas> perdas{};
 
         // Sem OMP_SCHEDULE, cada thread fica com um pedaço fixo do lote.
         if (!getenv("OMP_SCHEDULE")) {
@@ -387,7 +200,7 @@ int main(int argc, char** argv) {
         const auto inicio = chrono::steady_clock::now();
         // Uma única região paralela no treino inteiro: abrir uma por lote custaria caro.
 #pragma omp parallel
-        for (int epoca = 0; epoca < epocas; ++epoca) {
+        for (int epoca = 0; epoca < Barenn::epocas; ++epoca) {
             // Uma época percorre todo o conjunto na ordem do arquivo.
             for (size_t ini = 0; ini < treino.tamanho(); ini += lote) {
                 const int tam = static_cast<int>(min<size_t>(lote, treino.tamanho() - ini));
@@ -429,22 +242,17 @@ int main(int argc, char** argv) {
         const chrono::duration<double> tempo = chrono::steady_clock::now() - inicio;
 
         // Imprime as métricas e roda a avaliação após encerrar o cronômetro.
-        cout << fixed << setprecision(4)
-             << "TREINO | " << treino.tamanho() << " imagens\n";
-        for (int epoca = 0; epoca < epocas; epoca += 5) {
-            cout << "Epoca " << setw(2) << epoca + 1 << "/" << epocas
-                 << " | perda media " << perdas[epoca] << "\n";
-        }
-        cout << "Tempo de treino " << setprecision(6) << tempo.count() << " s\n"
-             << setprecision(4);
+        Barenn::imprime_treino(treino.tamanho(), perdas, tempo.count());
 #ifdef BARENN_HASH
-        uint64_t hash_pesos = 1469598103934665603ULL;
+        uint64_t hash_pesos = Barenn::hash_inicial;
         hash_pesos = l1.Hash(hash_pesos);
         hash_pesos = l2.Hash(hash_pesos);
         hash_pesos = l3.Hash(hash_pesos);
-        cout << "Hash dos pesos " << hex << hash_pesos << dec << "\n";
+        Barenn::imprime_hash(hash_pesos);
 #endif
-        Barenn::avaliar(l1, l2, l3, teste);
+        Barenn::avaliar([&](size_t i) {
+            return l3.Forward(l2.Forward(l1.Forward(teste.imagem(i), 0), 0), 0);
+        }, teste);
     } catch (const exception& erro) {
         cerr << "Erro: " << erro.what() << "\n";
         return 1;
