@@ -1,0 +1,20 @@
+Saida de scripts/valida.sh na v0.5, compute20, 9/nov. Compara a saida inteira com a referencia.
+
+=== integridade: lote 1 contra o legado
+T=1: OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+T=2: OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+T=4: OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+T=8: OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+=== integridade: lote 128 com qualquer T e escalonamento
+static T=1: OK: saida identica a referencia (Hash dos pesos 3d47e63baa129c93)
+static T=2: OK: saida identica a referencia (Hash dos pesos 3d47e63baa129c93)
+static T=4: OK: saida identica a referencia (Hash dos pesos 3d47e63baa129c93)
+static T=8: OK: saida identica a referencia (Hash dos pesos 3d47e63baa129c93)
+static T=16: OK: saida identica a referencia (Hash dos pesos 3d47e63baa129c93)
+static T=24: OK: saida identica a referencia (Hash dos pesos 3d47e63baa129c93)
+dynamic T=1: OK: saida identica a referencia (Hash dos pesos 3d47e63baa129c93)
+dynamic T=2: OK: saida identica a referencia (Hash dos pesos 3d47e63baa129c93)
+dynamic T=4: OK: saida identica a referencia (Hash dos pesos 3d47e63baa129c93)
+dynamic T=8: OK: saida identica a referencia (Hash dos pesos 3d47e63baa129c93)
+dynamic T=16: OK: saida identica a referencia (Hash dos pesos 3d47e63baa129c93)
+dynamic T=24: OK: saida identica a referencia (Hash dos pesos 3d47e63baa129c93)

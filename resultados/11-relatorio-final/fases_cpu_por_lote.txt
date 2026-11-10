@@ -1,0 +1,24 @@
+CPU, lote 128, OMP_WAIT_POLICY=active, 8 P-cores no maximo. Saida das execucoes de 9/nov.
+Tempo medido na thread principal com omp_get_wtime, em microssegundos por lote.
+Copia da v0.5 instrumentada com scripts/instrumenta_fases_cpu.py.
+amostras+barreira: forward, perda, backward e a barreira do laco
+atualiza: os laços de atualizacao das tres camadas, sem barreira
+barreira: a barreira depois da atualizacao
+espelho+barreira: copia do espelho por linha e a barreira do single
+
+=== T=1
+por lote (us): amostras+barreira 41.615 | atualiza 19.7512 | barreira 0.0913147 | espelho+barreira 0.238428 | lotes 1530 Tempo de treino 0.094499 s
+por lote (us): amostras+barreira 41.7269 | atualiza 19.7265 | barreira 0.0908131 | espelho+barreira 0.239576 | lotes 1530 Tempo de treino 0.094636 s
+por lote (us): amostras+barreira 41.8321 | atualiza 19.7026 | barreira 0.093517 | espelho+barreira 0.23818 | lotes 1530 Tempo de treino 0.094761 s
+=== T=2
+por lote (us): amostras+barreira 25.3297 | atualiza 12.4036 | barreira 0.248386 | espelho+barreira 0.3941 | lotes 1530 Tempo de treino 0.058883 s
+por lote (us): amostras+barreira 25.737 | atualiza 12.3668 | barreira 0.245295 | espelho+barreira 0.380999 | lotes 1530 Tempo de treino 0.059398 s
+por lote (us): amostras+barreira 26.357 | atualiza 12.352 | barreira 0.246466 | espelho+barreira 0.397938 | lotes 1530 Tempo de treino 0.060354 s
+=== T=4
+por lote (us): amostras+barreira 13.9528 | atualiza 7.16082 | barreira 0.233089 | espelho+barreira 0.410318 | lotes 1530 Tempo de treino 0.033584 s
+por lote (us): amostras+barreira 13.9047 | atualiza 7.1642 | barreira 0.241326 | espelho+barreira 0.426991 | lotes 1530 Tempo de treino 0.033496 s
+por lote (us): amostras+barreira 13.783 | atualiza 7.10352 | barreira 0.228116 | espelho+barreira 0.413118 | lotes 1530 Tempo de treino 0.033192 s
+=== T=8
+por lote (us): amostras+barreira 8.36018 | atualiza 4.60704 | barreira 0.464338 | espelho+barreira 0.498261 | lotes 1530 Tempo de treino 0.021663 s
+por lote (us): amostras+barreira 8.32802 | atualiza 4.56124 | barreira 0.419577 | espelho+barreira 0.472127 | lotes 1530 Tempo de treino 0.021384 s
+por lote (us): amostras+barreira 8.3476 | atualiza 4.58458 | barreira 0.419868 | espelho+barreira 0.45409 | lotes 1530 Tempo de treino 0.021453 s

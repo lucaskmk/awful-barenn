@@ -1,0 +1,16 @@
+Commit 3847cb1 (acumulador do gradiente na pilha), politica de espera padrao do libgomp.
+Saida de scripts/escala_cpu.slurm, compute20, 9/nov. Compare com
+resultados/05-paralelismo/escala_com_falso_compartilhamento.txt, que tem a mesma politica.
+
+no: compute20
+Model name:                           Intel(R) Core(TM) i9-14900
+binario: ./barenn | repeticoes: 10 | OMP_SCHEDULE: static
+  lote    T    media_s   desvio_s  speedup eficiencia
+    32    1   0.099256   0.000497     1.00     100.0%
+    32    2   0.086958   0.000394     1.14      57.1%
+    32    4   0.064881   0.000304     1.53      38.2%
+    32    8   0.062014   0.000640     1.60      20.0%
+   128    1   0.094755   0.000227     1.00     100.0%
+   128    2   0.062360   0.000340     1.52      76.0%
+   128    4   0.037650   0.000589     2.52      62.9%
+   128    8   0.027372   0.000310     3.46      43.3%
