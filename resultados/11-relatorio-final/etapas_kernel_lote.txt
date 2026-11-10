@@ -1,0 +1,13 @@
+Ciclos de SM por bloco em cada etapa do kernel_lote, lote 128, 8 amostras por bloco.
+Compilacao com -DBARENN_OCUPACAO, medida com clock64() na thread 0 de cada bloco. Saidas de 9/nov.
+
+etapa                               passo_par(dc4ef84)  passo_impar(42745cc)
+0 pesos e imagens para compartilhada           4542.03               4334.48
+1 forward da camada 1                          4615.04               1429.63
+2 forward da camada 2                          1394.78                565.38
+3 forward da camada 3                           494.08                378.44
+4 perda e gradiente da camada 3                 378.07                380.77
+5 delta da camada 2                             192.95                192.83
+6 gradiente de entrada da camada 2              503.32                503.91
+7 delta da camada 1                             126.00                126.00
+8 copia de volta para a memoria global          435.50                432.85

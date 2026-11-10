@@ -1,0 +1,26 @@
+no: compute20 | Model name: Intel(R) Core(TM) i9-14900
+
+### integridade por tag (compilada do zero)
+v0.1-baseline | CPU lote 1 | OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+v0.2-sem-copias | CPU lote 1 | OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+v0.3-sem-gradiente-morto | CPU lote 1 | OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+v0.4-layout-simd | CPU lote 1 | OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+v0.5-paralelismo-minilote | CPU lote 1 | OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+v0.6-cuda-inicial | GPU lote 1 | OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+v0.6-cuda-inicial | CPU lote 1 | OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+v0.7-cuda-uma-epoca-por-kernel | GPU lote 1 | OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+v0.7-cuda-uma-epoca-por-kernel | CPU lote 1 | OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+v0.8-cuda-minilote | GPU lote 1 | OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+v0.8-cuda-minilote | CPU lote 1 | OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+v0.9-cuda-shared-memory | GPU lote 1 | OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+v0.9-cuda-shared-memory | CPU lote 1 | OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+v0.10-cuda-streams | GPU lote 1 | OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+v0.10-cuda-streams | CPU lote 1 | OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+
+### contadores de hardware por tag, um P-core (lote 1 ate v0.4, lote 128 a partir da v0.5)
+tag                            treino_s     instrucoes         ciclos      IPC   falhas_L1D acessos_L3  falhas_L3
+v0.1-baseline                    0.3087     9728503200     1887810294    5.153       965510      74082       3154
+v0.2-sem-copias                  0.2852     9018949374     1748547763    5.158       174617      69399       2174
+v0.3-sem-gradiente-morto         0.1895     5637002878     1194062620    4.721       151421      67801       1017
+v0.4-layout-simd                 0.1060     3327075226      707104112    4.705       602636      71634        742
+v0.5-paralelismo-minilote      0.092125     2509583293      623398687    4.026      4078972      75289       1821

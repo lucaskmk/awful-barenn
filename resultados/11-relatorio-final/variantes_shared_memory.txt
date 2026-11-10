@@ -1,0 +1,18 @@
+Bloco 9, lote 128, 8 amostras por bloco, compute20, RTX A1000, saidas de 9/nov.
+Treino: media e desvio de 10 execucoes (scripts/escala_gpu.sh ou scripts/medir.slurm).
+Kernels: tempo medio por instancia no Nsight Systems (scripts/analisa_nsys.py).
+As duas linhas marcadas como tentativa nao entraram no repositorio.
+
+variante                                         commit    treino_ms  desvio_ms  kernel_lote_ns  kernel_atualiza_ns
+v0.8, tudo em memoria global                     v0.8         41.019      0.024           16482                9258
+kernel_lote em memoria compartilhada             447bcd8      30.254      0.068            9480                9230
+tentativa: grupos com entradas na compartilhada  447bcd8+     33.051      0.040            9476               11086
+grupos com entradas na memoria global            a3f500e      26.501      0.058            9468                6775
+tentativa: lacos desenrolados de 4 em 4          a3f500e+     26.062      0.072            9468                6475
+passo impar nas linhas de pesos (v0.9)           42745cc      22.010      0.036            6565                6744
+
+Amostras por bloco no kernel_lote em memoria compartilhada (447bcd8), lote 128:
+  amostras_bloco   treino_ms  desvio_ms
+               4      33.046      0.047
+               8      30.254      0.068
+              16      35.636      0.027
