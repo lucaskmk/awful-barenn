@@ -127,7 +127,7 @@ As tags até a `v0.4` são só CPU e compilam com `make`. As tags a partir da `v
 Duas limitações que afetam a leitura dos números:
 
 - O clock efetivo do P-core muda de um job para outro no compute20, entre 4,76 e 5,75 GHz. Por isso as versões de CPU foram comparadas no mesmo job, com as execuções intercaladas, e eu também reporto ciclos. Os detalhes estão na [Issue #21](https://github.com/lucaskmk/awful-barenn/issues/21).
-- O Nsight Compute não funciona para o meu usuário no Franky (`ERR_NVGPUCTRPERM`), e as GPU Metrics do Nsight Systems também não. Usei Nsight Systems para tempos de kernel e de cópia, e medi a ocupação real dos SMs com instrumentação própria (`%smid` e `clock64()`), compilada com `-DBARENN_OCUPACAO`.
+- O Nsight Compute não funciona para o meu usuário no Franky (`ERR_NVGPUCTRPERM`), e as GPU Metrics do Nsight Systems também não. Usei Nsight Systems para tempos de kernel e de cópia, e medi a utilização dos SMs com instrumentação própria (`%smid` e `clock64()`), compilada com `-DBARENN_OCUPACAO`. A ocupação de warps ficou sem medição direta, só com o limite teórico da seção sobre ocupação.
 
 ---
 
