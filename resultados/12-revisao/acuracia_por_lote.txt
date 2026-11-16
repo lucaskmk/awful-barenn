@@ -1,0 +1,41 @@
+Acuracia no optdigits.tes por tamanho de lote, codigo da tag v1.0-relatorio-final (barenn_hash, CPU).
+Rodado no WSL do meu PC, nao no Franky: 12th Gen Intel(R) Core(TM) i5-1235U, g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0.
+O hash dos pesos dos lotes 1, 32, 64, 128 e 256 e identico ao medido no Franky, entao a conta e a mesma.
+
+lote 1 contra o legado: OK: saida identica a referencia (Hash dos pesos 516bbf84aa2b062)
+lote 128 contra a referencia do Franky: OK: saida identica a referencia (Hash dos pesos 3d47e63baa129c93)
+--- lote 1
+Epoca 51/51 | perda media 0.0135
+Hash dos pesos 516bbf84aa2b062
+Acuracia 95.5% | 1717 acertos em 1797 imagens
+Perda media 0.0432
+--- lote 32
+Epoca 51/51 | perda media 0.0111
+Hash dos pesos 96b428a292a6379f
+Acuracia 96.5% | 1735 acertos em 1797 imagens
+Perda media 0.0368
+--- lote 64
+Epoca 51/51 | perda media 0.0177
+Hash dos pesos 17a4fc7af1ba86a5
+Acuracia 96.3% | 1730 acertos em 1797 imagens
+Perda media 0.0395
+--- lote 128
+Epoca 51/51 | perda media 0.0239
+Hash dos pesos 3d47e63baa129c93
+Acuracia 96.3% | 1731 acertos em 1797 imagens
+Perda media 0.0444
+--- lote 256
+Epoca 51/51 | perda media 0.0376
+Hash dos pesos 5c757083bb4933c0
+Acuracia 94.4% | 1697 acertos em 1797 imagens
+Perda media 0.0645
+--- lote 512
+Epoca 51/51 | perda media 0.0699
+Hash dos pesos 254cfc3ab7d7cccd
+Acuracia 93.8% | 1685 acertos em 1797 imagens
+Perda media 0.0811
+--- lote 1024
+Epoca 51/51 | perda media 0.1771
+Hash dos pesos 72f00a6380384403
+Acuracia 80.6% | 1448 acertos em 1797 imagens
+Perda media 0.1806
