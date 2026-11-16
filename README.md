@@ -1,35 +1,91 @@
 # APS2: relatório executivo
 
-Este bloco resume minha entrega. A discussão completa de cada etapa está nas Issues, e cada linha da tabela abaixo pode ser reproduzida com `git checkout <tag>`. O enunciado original continua logo depois deste sumário, sem alterações.
+Este bloco resume minha entrega. A discussão completa de cada etapa está nas Issues, e cada linha das tabelas abaixo pode ser reproduzida com `git checkout <tag>`. O enunciado original continua logo depois deste sumário, sem alterações.
 
 ## Tabela consolidada
+
+O programa tem dois modos de treino, e eles não devem ser comparados como se fossem a mesma conta:
+
+- **SGD por amostra**, o algoritmo do legado. Os pesos mudam depois de cada imagem. Todas as versões neste modo produzem pesos idênticos aos do legado, bit a bit.
+- **Mini-lote de 128 amostras**, que é outro algoritmo de otimização. Os pesos mudam a cada 128 imagens, e foi isso que permitiu paralelizar. O resultado numérico muda, então ele é validado de outro jeito: o hash dos pesos é o mesmo com qualquer número de threads e na GPU, e a acurácia no teste sobe de 95,5% para 96,3%.
+
+A partir da `v0.5` o padrão é o mini-lote de 128. Em qualquer versão, `BARENN_LOTE=1` volta ao algoritmo do legado e reproduz a saída dele bit a bit.
+
+### Mesmo algoritmo do legado
 
 | Versão | Tag | Onde roda | Tempo de treino | Ganho sobre o legado | Acurácia | Conferência numérica |
 | --- | --- | --- | ---: | ---: | ---: | --- |
 | **Baseline Legado** | [`v0.1-baseline`](https://github.com/lucaskmk/awful-barenn/tree/v0.1-baseline) | 1 P-core | 309,9 ms | 1,0x | 95,5% | referência, hash `516bbf84aa2b062` |
 | Sem cópias | [`v0.2-sem-copias`](https://github.com/lucaskmk/awful-barenn/tree/v0.2-sem-copias) | 1 P-core | 285,4 ms | 1,09x | 95,5% | igual ao legado |
 | Sem gradiente descartado | [`v0.3-sem-gradiente-morto`](https://github.com/lucaskmk/awful-barenn/tree/v0.3-sem-gradiente-morto) | 1 P-core | 189,5 ms | 1,64x | 95,5% | igual ao legado |
-| Layout por coluna e AVX2 | [`v0.4-layout-simd`](https://github.com/lucaskmk/awful-barenn/tree/v0.4-layout-simd) | 1 P-core | 105,8 ms | 2,93x | 95,5% | igual ao legado |
-| **CPU Otimizada** | [`v0.5-paralelismo-minilote`](https://github.com/lucaskmk/awful-barenn/tree/v0.5-paralelismo-minilote) | 8 P-cores, mini-lote de 128 | 21,7 ms | 14,3x | 96,3% | lote 1 igual ao legado; lote 128 com o mesmo hash de 1 a 24 threads |
+| **CPU otimizada, mesmo algoritmo** | [`v0.4-layout-simd`](https://github.com/lucaskmk/awful-barenn/tree/v0.4-layout-simd) | 1 P-core | 105,8 ms | 2,93x | 95,5% | igual ao legado |
 | **CUDA Inicial** | [`v0.6-cuda-inicial`](https://github.com/lucaskmk/awful-barenn/tree/v0.6-cuda-inicial) | RTX A1000 | 6.962 ms | 0,04x | 95,5% | igual ao legado |
-| Uma época por kernel | [`v0.7-cuda-uma-epoca-por-kernel`](https://github.com/lucaskmk/awful-barenn/tree/v0.7-cuda-uma-epoca-por-kernel) | RTX A1000, 1 de 18 SMs | 2.078 ms | 0,15x | 95,5% | igual ao legado |
-| Mini-lote na GPU | [`v0.8-cuda-minilote`](https://github.com/lucaskmk/awful-barenn/tree/v0.8-cuda-minilote) | RTX A1000, 16 de 18 SMs | 41,0 ms | 7,6x | 96,3% | mesmo hash da CPU no lote 128 |
-| **CUDA Otimizado** | [`v0.9-cuda-shared-memory`](https://github.com/lucaskmk/awful-barenn/tree/v0.9-cuda-shared-memory) | RTX A1000, memória compartilhada | 22,0 ms | 14,1x | 96,3% | mesmo hash da CPU no lote 128 |
-| CUDA com streams | [`v0.10-cuda-streams`](https://github.com/lucaskmk/awful-barenn/tree/v0.10-cuda-streams) | RTX A1000, lotes vindos do host | 25,0 ms | 12,4x | 96,3% | mesmo hash da CPU no lote 128 |
+| CUDA, uma época por kernel | [`v0.7-cuda-uma-epoca-por-kernel`](https://github.com/lucaskmk/awful-barenn/tree/v0.7-cuda-uma-epoca-por-kernel) | RTX A1000, 1 bloco | 2.078 ms | 0,15x | 95,5% | igual ao legado |
+
+Neste modo a GPU nunca passa a CPU. Cada amostra depende dos pesos deixados pela anterior, então só um bloco de 32 threads consegue trabalhar, em 1 dos 18 SMs. Paralelizar dentro de cada amostra na CPU também não pagou: ficou até 16,9x mais lento (#9).
+
+### Mini-lote de 128
+
+| Versão | Tag | Onde roda | Tempo de treino | Tempo do legado dividido por este | Acurácia | Conferência numérica |
+| --- | --- | --- | ---: | ---: | ---: | --- |
+| **CPU Otimizada** | [`v0.5-paralelismo-minilote`](https://github.com/lucaskmk/awful-barenn/tree/v0.5-paralelismo-minilote) | 8 P-cores | 21,7 ms | 14,3x | 96,3% | mesmo hash de 1 a 24 threads |
+| Mini-lote na GPU | [`v0.8-cuda-minilote`](https://github.com/lucaskmk/awful-barenn/tree/v0.8-cuda-minilote) | RTX A1000, 16 de 18 SMs | 41,0 ms | 7,6x | 96,3% | mesmo hash da CPU |
+| **CUDA Otimizado** | [`v0.9-cuda-shared-memory`](https://github.com/lucaskmk/awful-barenn/tree/v0.9-cuda-shared-memory) | RTX A1000, memória compartilhada | 22,0 ms | 14,1x | 96,3% | mesmo hash da CPU |
+| CUDA com streams | [`v0.10-cuda-streams`](https://github.com/lucaskmk/awful-barenn/tree/v0.10-cuda-streams) | RTX A1000, lotes vindos do host | 25,0 ms | 12,4x | 96,3% | mesmo hash da CPU |
+
+Aqui a razão compara algoritmos diferentes. Ela só vale como ganho porque o modelo treinado ficou igual ou melhor que o do legado no conjunto de teste.
 
 Os tempos de CPU são a mediana de 20 rodadas intercaladas em um único job. Os de GPU são a média de 10 execuções. Os dois lados treinam 51 épocas sobre as 3823 imagens do `optdigits.tra`, e o tempo conta só o treino.
 
 ![Tempo de treino por versão](resultados/graficos/tempo_por_versao.png)
 
+## Tamanho do lote e qualidade do modelo
+
+| Lote | Acurácia | Perda no teste | CPU, 8 P-cores | GPU |
+| ---: | ---: | ---: | ---: | ---: |
+| 1, o legado | 95,5% | 0,0432 | | |
+| 32 | 96,5% | 0,0368 | 34,5 ms | 65,7 ms |
+| 64 | 96,3% | 0,0395 | 25,4 ms | 36,5 ms |
+| **128, o padrão** | **96,3%** | 0,0444 | 21,3 ms | 22,0 ms |
+| 256 | 94,4% | 0,0645 | 18,7 ms | 16,0 ms |
+| 512 | 93,8% | 0,0811 | 17,0 ms | 13,1 ms |
+| 1024 | 80,6% | 0,1806 | 15,8 ms | 11,9 ms |
+
+Acima do lote 128 o treino fica mais rápido, principalmente na GPU, mas a acurácia cai para baixo da do legado. Com lote 1024 ela despenca para 80,6%. Por isso o padrão é 128, e os tempos dos lotes maiores servem só para entender o custo do hardware, não como resultado. Os tempos são do mesmo job no Franky. As acurácias vêm de [`resultados/12-revisao`](resultados/12-revisao/acuracia_por_lote.txt), e os hashes dos lotes de 1 a 256 batem com os medidos no Franky.
+
 ## O que eu concluí
 
-- A CPU ganhou 14,3x sobre o legado e a acurácia subiu de 95,5% para 96,3%. Com `BARENN_LOTE=1` o programa ainda reproduz o legado bit a bit.
-- O SGD original atualiza os pesos a cada amostra, então cada amostra depende da anterior. Nesse formato a GPU ficou 100% ocupada e mesmo assim levou 2,08 s, porque só um bloco consegue trabalhar: 1 de 18 SMs.
-- O mini-lote foi o que abriu paralelismo real, nos dois lados. Depois disso, memória compartilhada levou a GPU de 41,0 ms para 22,0 ms.
-- Com lote de 128, CPU e GPU praticamente empatam (21,3 ms contra 22,0 ms no mesmo job). A GPU tem custo fixo por lote maior (9,2 µs contra 3,1 µs) e custo por amostra menor (47 ns contra 82 ns), e as curvas cruzam perto do lote 175. Para um conjunto maior, em que o lote possa crescer, a GPU leva vantagem.
+- Com o algoritmo do legado, a CPU ganhou 2,93x, sem mudar nenhum bit do resultado. Com mini-lote de 128 e 8 P-cores, chegou a 14,3x e a acurácia subiu de 95,5% para 96,3%.
+- No SGD por amostra, a GPU tinha kernel rodando o tempo todo e mesmo assim levou 2,08 s, porque só um bloco de 32 threads trabalha: um warp, em 1 de 18 SMs.
+- O mini-lote foi o que abriu paralelismo real, nos dois lados. Depois disso, a memória compartilhada levou a GPU de 41,0 ms para 22,0 ms.
+- Com lote de 128, CPU e GPU praticamente empatam (21,3 ms contra 22,0 ms no mesmo job). A GPU tem custo fixo por lote maior (9,2 µs contra 3,1 µs) e custo por amostra menor (47 ns contra 82 ns), e as curvas cruzam perto do lote 175. Neste conjunto, lote acima de 128 derruba a acurácia, então a vantagem da GPU não se realiza aqui. Ela apareceria com mais dados, em que o lote pudesse crescer sem perder qualidade.
 - Quando os dados vêm do host, a cópia bloqueante dobra o tempo (44,0 ms) e as streams recuperam quase tudo (25,0 ms).
 
 ![CPU contra GPU por tamanho de lote](resultados/graficos/cpu_vs_gpu_por_lote.png)
+
+## O que foi medido de ocupação da GPU
+
+São três coisas diferentes, e nas Issues #13, #15 e #17 eu chamei a segunda de "ocupação real". O nome certo é utilização dos SMs.
+
+- **Utilização no tempo**, do Nsight Systems: a fração do tempo em que havia kernel rodando. Na `v0.7` ela é praticamente 100%, o que não quer dizer que a GPU estivesse cheia.
+- **Utilização dos SMs**, da minha instrumentação com `%smid` e `clock64()`: quais SMs executaram blocos e por quanto tempo. Na `v0.9`, 16 dos 18 SMs ficaram ativos durante 87% do tempo do `kernel_lote`.
+- **Ocupação de warps** (achieved occupancy): warps ativos por SM, sobre o máximo de 48 da RTX A1000. Eu não consegui medir porque o Nsight Compute é bloqueado para o meu usuário no Franky (`ERR_NVGPUCTRPERM`). Como nenhum kernel tem blocos suficientes para colocar mais de um por SM, a configuração de lançamento dá um limite superior:
+
+| Kernel | Configuração | Limite da ocupação de warps |
+| --- | --- | ---: |
+| `v0.6`, um kernel por operação | 1 bloco de 10 a 32 threads | 1 de 48 warps (2,1%), em 1 SM |
+| `v0.7`, `kernel_epoca` | 1 bloco de 32 threads | 1 de 48 warps (2,1%), em 1 SM |
+| `v0.8` e `v0.9`, `kernel_lote` | 16 blocos de 256 threads | 8 de 48 warps (16,7%), em 16 SMs |
+| `v0.8`, `kernel_atualiza` | 58 blocos de 64 threads | até 4 blocos de 2 warps por SM, 8 de 48 (16,7%) |
+| `v0.9`, `kernel_atualiza` | 15 blocos de 256 threads | 8 de 48 warps (16,7%), em 15 SMs |
+
+A ocupação de warps é baixa em todas as versões, o que bate com o roofline do #21: a GPU fica longe dos tetos de ponto flutuante e de banda porque a rede é pequena e cada lote tem pouco trabalho paralelo.
+
+## Correções e cronologia
+
+- **Falso compartilhamento (#9).** Apresentei o acumulador na pilha como correção de falso compartilhamento. Os dados mostram outra coisa: o speedup com 8 threads ficou em 3,46 antes e depois, e o ganho de 11% foi no código serial, que também caiu de 106,8 ms para 94,8 ms.
+- **`restrict` (#3) e tempo da v0.3 (#5).** As medições originais caíram em jobs com clock diferente. As duas issues já trazem os números refeitos no mesmo job.
+- **Cronologia.** As Issues de 1 a 21 foram abertas no GitHub em 10/11, depois dos commits de implementação, feitos a partir de 09/11. O diagnóstico, a hipótese e a métrica base de cada uma descrevem o que motivou cada bloco, e a ordem real do trabalho está no histórico de commits e nas datas das tags. Esta revisão já seguiu a ordem pedida: a [Issue #23](https://github.com/lucaskmk/awful-barenn/issues/23) foi aberta antes do primeiro commit.
 
 ## Índice
 
@@ -46,6 +102,7 @@ Os tempos de CPU são a mediana de 20 rodadas intercaladas em um único job. Os 
 | 9 | Memória compartilhada | [#17](https://github.com/lucaskmk/awful-barenn/issues/17) | [#18](https://github.com/lucaskmk/awful-barenn/pull/18) | [`v0.9-cuda-shared-memory`](https://github.com/lucaskmk/awful-barenn/releases/tag/v0.9-cuda-shared-memory) |
 | 10 | Streams para dados vindos do host | [#19](https://github.com/lucaskmk/awful-barenn/issues/19) | [#20](https://github.com/lucaskmk/awful-barenn/pull/20) | [`v0.10-cuda-streams`](https://github.com/lucaskmk/awful-barenn/releases/tag/v0.10-cuda-streams) |
 | 11 | Comparação final e metodologia | [#21](https://github.com/lucaskmk/awful-barenn/issues/21) | [#22](https://github.com/lucaskmk/awful-barenn/pull/22) | [`v1.0-relatorio-final`](https://github.com/lucaskmk/awful-barenn/releases/tag/v1.0-relatorio-final) |
+| 12 | Revisão da leitura dos resultados | [#23](https://github.com/lucaskmk/awful-barenn/issues/23) | [#24](https://github.com/lucaskmk/awful-barenn/pull/24) | [`v1.1-revisao-dos-resultados`](https://github.com/lucaskmk/awful-barenn/releases/tag/v1.1-revisao-dos-resultados) |
 
 ## Como reproduzir
 
